@@ -1,0 +1,51 @@
+# Бірлік — frontend
+
+Понятный интерфейс учёта участников для одного оператора. Весь интерфейс на казахском: крупные основные действия, подсказки, возможность проверить OCR перед сохранением и восстановить архивного участника.
+
+Backend: [dkikowe/apa-back](https://github.com/dkikowe/apa-back).
+
+## Запуск
+
+Требуется Node.js 22 LTS (22.13 или новее).
+
+```sh
+npm ci
+cp .env.example .env
+npm run dev
+```
+
+Открыть http://localhost:5173. Backend должен работать на http://127.0.0.1:3001; для другого адреса задайте `API_PROXY_TARGET`. Это настройка Vite, а не публичный ключ. Логин и пароль создаются в backend командой `npm run admin:create`; в репозитории готового пароля нет.
+
+## Проверки
+
+```sh
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+`dist/` содержит production frontend. Тесты проверяют совместимые с сервером правила возраста, дат и денег. Весь пользовательский интерфейс обращается к настоящему API; моков вместо backend нет.
+
+## Production и cookies
+
+Frontend всегда обращается к `/api` на своём origin. Разместите frontend и API за одним HTTPS-доменом:
+
+- `/` → содержимое `dist/` с SPA fallback на `index.html`;
+- `/api/` → Node backend, сохраняя префикс `/api`;
+- backend `APP_ORIGIN` → точный внешний HTTPS origin;
+- backend `SERVE_FRONTEND=false`;
+- документы идут через backend multipart API (до 15 МБ), оригиналы открываются по краткоживущей S3-ссылке.
+
+Так сохраняются HttpOnly + Secure + SameSite cookies и CSRF-защита. Для разных публичных доменов используйте серверный reverse proxy на домене frontend; прямой вызов другого origin в этом проекте не настроен.
+
+`Dockerfile` собирает приложение и обслуживает его через Nginx. `nginx.conf` ожидает upstream `backend:3001` и доверенный TLS ingress, который перезаписывает `X-Forwarded-Proto`. Не публикуйте HTTP-контейнер напрямую как production-вход. Если разворачиваете без Docker, используйте аналогичный reverse proxy.
+
+## Структура
+
+- `web/src` — страницы, формы и компоненты;
+- `web/src/components/ui` — компоненты на Radix/shadcn-подходе;
+- `shared/domain.ts` — схема обмена и отображения данных, синхронизированная с backend;
+- `tests` — тесты общих правил.
+
+Критические расчёты и проверки остаются на backend. При изменении схемы обновляйте `shared/domain.ts` согласованно в обоих репозиториях.

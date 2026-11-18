@@ -1,0 +1,137 @@
+import { z } from "zod";
+export const REGIONS = [
+  "Ақтау",
+  "Жаңаөзен",
+  "Бейнеу ауданы",
+  "Қарақия ауданы",
+  "Маңғыстау ауданы",
+  "Мұнайлы ауданы",
+  "Түпқараған ауданы",
+] as const;
+export const AGE_LABELS = [
+  "25 жасқа дейін",
+  "25–44 жас",
+  "45–64 жас",
+  "65 жас және одан жоғары",
+] as const;
+export const FEE = 648700; // tiyn, never binary floating point money
+export const STATUS_LABELS = {
+  unpaid: "Төленбеген",
+  partial: "Ішінара төленген",
+  paid: "Төленген",
+} as const;
+export function today() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Almaty",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+export function ageAt(birthDate: string, at = today()) {
+  const [y, m, d] = birthDate.slice(0, 10).split("-").map(Number);
+  const [ay, am, ad] = at.split("-").map(Number);
+  return ay - y - (am < m || (am === m && ad < d) ? 1 : 0);
+}
+export function ageGroup(age: number) {
+  return age < 25 ? 0 : age < 45 ? 1 : age < 65 ? 2 : 3;
+}
+export function balance(paid: number) {
+  return {
+    totalPaid: paid,
+    remaining: Math.max(0, FEE - paid),
+    overpayment: Math.max(0, paid - FEE),
+    status: paid === 0 ? "unpaid" : paid < FEE ? "partial" : "paid",
+    progress: Math.min(100, (paid / FEE) * 100),
+  };
+}
+export function money(value: number) {
+  const absolute = Math.abs(value);
+  const major = String(Math.floor(absolute / 100)).replace(
+    /\B(?=(\d{3})+(?!\d))/g,
+    "\u202f",
+  );
+  const minor = absolute % 100;
+  return (
+    (value < 0 ? "−" : "") +
+    major +
+    (minor ? "," + String(minor).padStart(2, "0") : "") +
+    " ₸"
+  );
+}
+export function displayDate(value = today()) {
+  const months = [
+    "қаңтар",
+    "ақпан",
+    "наурыз",
+    "сәуір",
+    "мамыр",
+    "маусым",
+    "шілде",
+    "тамыз",
+    "қыркүйек",
+    "қазан",
+    "қараша",
+    "желтоқсан",
+  ];
+  const [, month, day] = value.split("-").map(Number);
+  return `${day} ${months[month - 1]}`;
+}
+export function parseMoney(value: string) {
+  const cleaned = value.replace(/\s/g, "").replace(",", ".");
+  if (!/^\d{1,10}(\.\d{1,2})?$/.test(cleaned))
+    throw new Error("Соманы дұрыс енгізіңіз");
+  const [major, minor = ""] = cleaned.split(".");
+  return Number(major) * 100 + Number(minor.padEnd(2, "0"));
+}
+export const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Күнді көрсетіңіз")
+  .refine(
+    (v) =>
+      !isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v,
+    "Күн дұрыс емес",
+  );
+const name = z.string().trim().min(1, "Бұл жолды толтырыңыз").max(100);
+export const participantSchema = z.object({
+  lastName: name,
+  firstName: name,
+  middleName: z.string().trim().max(100).default(""),
+  lastNameLatin: z.string().trim().max(100).default(""),
+  firstNameLatin: z.string().trim().max(100).default(""),
+  birthDate: dateSchema.refine(
+    (v) => v <= today() && ageAt(v) <= 120,
+    "Туған күнін тексеріңіз",
+  ),
+  region: z.enum(REGIONS, { error: "Аймақты таңдаңыз" }),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[\d\s()-]{10,20}$/, "Телефон нөмірін тексеріңіз"),
+  identityDocumentId: z
+    .string()
+    .regex(/^[a-f\d]{24}$/i)
+    .optional(),
+});
+export const paymentSchema = z.object({
+  year: z.number().int().min(2000).max(2100),
+  amount: z.number().int().positive().max(1000000000000),
+  paymentDate: dateSchema,
+  recipientName: z.string().trim().max(200).default(""),
+  receiptNumber: z.string().trim().max(150).default(""),
+  method: z.string().trim().max(100).default(""),
+  receiptDocumentId: z
+    .string()
+    .regex(/^[a-f\d]{24}$/i)
+    .optional(),
+  notes: z.string().trim().max(1000).default(""),
+  confirmDuplicate: z.boolean().default(false),
+});
+export const financeSchema = z.object({
+  type: z.enum(["income", "expense"]),
+  amount: z.number().int().positive().max(1000000000000),
+  date: dateSchema,
+  category: name,
+  description: z.string().trim().max(1000).default(""),
+});
+export type ParticipantInput = z.infer<typeof participantSchema>;
