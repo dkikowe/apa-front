@@ -93,26 +93,53 @@ export const dateSchema = z
     "Күн дұрыс емес",
   );
 const name = z.string().trim().min(1, "Бұл жолды толтырыңыз").max(100);
-export const participantSchema = z.object({
-  lastName: name,
-  firstName: name,
-  middleName: z.string().trim().max(100).default(""),
-  lastNameLatin: z.string().trim().max(100).default(""),
-  firstNameLatin: z.string().trim().max(100).default(""),
-  birthDate: dateSchema.refine(
-    (v) => v <= today() && ageAt(v) <= 120,
-    "Туған күнін тексеріңіз",
-  ),
-  region: z.enum(REGIONS, { error: "Аймақты таңдаңыз" }),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+?[\d\s()-]{10,20}$/, "Телефон нөмірін тексеріңіз"),
-  identityDocumentId: z
-    .string()
-    .regex(/^[a-f\d]{24}$/i)
-    .optional(),
-});
+export const IDENTITY_FIELDS = [
+  ["iin", "ЖСН (12 сан)"],
+  ["documentNumber", "Куәлік нөмірі"],
+  ["issuedBy", "Кім берді"],
+  ["issueDate", "Берілген күні"],
+  ["expiryDate", "Жарамдылық мерзімі"],
+] as const;
+const optionalDate = z.union([dateSchema, z.literal("")]).default("");
+export const participantSchema = z
+  .object({
+    lastName: name,
+    firstName: name,
+    middleName: z.string().trim().max(100).default(""),
+    lastNameLatin: z.string().trim().max(100).default(""),
+    firstNameLatin: z.string().trim().max(100).default(""),
+    birthDate: dateSchema.refine(
+      (v) => v <= today() && ageAt(v) <= 120,
+      "Туған күнін тексеріңіз",
+    ),
+    region: z.enum(REGIONS, { error: "Аймақты таңдаңыз" }),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^\+?[\d\s()-]{10,20}$/, "Телефон нөмірін тексеріңіз"),
+    iin: z
+      .string()
+      .trim()
+      .regex(/^(?:\d{12})?$/, "ЖСН 12 саннан тұруы керек")
+      .default(""),
+    documentNumber: z
+      .string()
+      .trim()
+      .max(30)
+      .regex(/^[A-Za-zА-Яа-я0-9 -]*$/, "Куәлік нөмірін тексеріңіз")
+      .default(""),
+    issuedBy: z.string().trim().max(200).default(""),
+    issueDate: optionalDate,
+    expiryDate: optionalDate,
+    identityDocumentId: z
+      .string()
+      .regex(/^[a-f\d]{24}$/i)
+      .optional(),
+  })
+  .refine((v) => !v.issueDate || !v.expiryDate || v.issueDate <= v.expiryDate, {
+    message: "Жарамдылық мерзімі берілген күннен бұрын болмауы керек",
+    path: ["expiryDate"],
+  });
 export const paymentSchema = z.object({
   year: z.number().int().min(2000).max(2100),
   amount: z.number().int().positive().max(1000000000000),

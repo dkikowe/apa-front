@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Plus,
+  Upload,
   Search,
   ArrowUpRight,
   ArrowLeft,
@@ -19,7 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, qs, send, queryClient, openDocument } from "./api";
-import { money, AGE_LABELS, FEE } from "../../shared/domain";
+import { money, AGE_LABELS, FEE, IDENTITY_FIELDS } from "../../shared/domain";
 import { Button } from "./components/ui/button";
 import {
   defaultFilters,
@@ -35,6 +36,7 @@ import {
   Confirm,
   YearSelect,
 } from "./components/common";
+import { ExcelImport } from "./components/ExcelImport";
 import { ParticipantForm, PaymentForm } from "./components/forms";
 export function useDebounce<T>(value: T, ms = 300) {
   const [result, setResult] = useState(value);
@@ -57,7 +59,7 @@ export function MemberTable({
 }) {
   return (
     <div className="table-scroll">
-      <table>
+      <table className="members-table">
         <thead>
           <tr>
             {!compact && <th>№</th>}
@@ -65,8 +67,8 @@ export function MemberTable({
             <th>Аймағы</th>
             {!compact && (
               <>
-                <th>Жасы / туған күні</th>
-                <th>Телефон</th>
+                <th className="member-extra">Жасы / туған күні</th>
+                <th className="member-extra">Телефон</th>
               </>
             )}
             <th className="numeric">Төленді</th>
@@ -80,8 +82,12 @@ export function MemberTable({
         <tbody>
           {items.map((p: any, i: number) => (
             <tr key={p._id}>
-              {!compact && <td>{offset + i + 1}</td>}
-              <td>
+              {!compact && (
+                <td className="member-index" data-label="№">
+                  {offset + i + 1}
+                </td>
+              )}
+              <td className="member-primary">
                 <Link
                   className="member-name"
                   to={`/participants/${p._id}?year=${year}`}
@@ -98,10 +104,10 @@ export function MemberTable({
                   </span>
                 </Link>
               </td>
-              <td>{p.region}</td>
+              <td data-label="Аймақ">{p.region}</td>
               {!compact && (
                 <>
-                  <td>
+                  <td className="member-extra" data-label="Жасы / туған күні">
                     {p.age} жас
                     <small>
                       {p.birthDate}
@@ -109,17 +115,21 @@ export function MemberTable({
                       {AGE_LABELS[p.ageGroup]}
                     </small>
                   </td>
-                  <td>{p.phone}</td>
+                  <td className="member-extra" data-label="Телефон">
+                    {p.phone}
+                  </td>
                 </>
               )}
-              <td className="numeric strong">
+              <td className="numeric strong" data-label="Төленді">
                 {money(p.totalPaid)}
                 {p.overpayment > 0 && (
                   <small>Артық: {money(p.overpayment)}</small>
                 )}
               </td>
-              <td className="numeric">{money(p.remaining)}</td>
-              <td>
+              <td className="numeric" data-label="Қалды">
+                {money(p.remaining)}
+              </td>
+              <td data-label="Төлем жағдайы">
                 <Status status={p.status} />
               </td>
               <td>
@@ -128,6 +138,7 @@ export function MemberTable({
                   aria-label={`${p.lastName} ${p.firstName}: карточканы ашу`}
                   to={`/participants/${p._id}?year=${year}`}
                 >
+                  <span>Қарау</span>
                   <ArrowUpRight size={20} />
                 </Link>
               </td>
@@ -143,7 +154,8 @@ export function Participants({ membership = false }: { membership?: boolean }) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters),
     [page, setPage] = useState(1),
     [adding, setAdding] = useState(false),
-    [showFilters, setShowFilters] = useState(membership);
+    [importing, setImporting] = useState(false),
+    [showFilters, setShowFilters] = useState(true);
   const search = useDebounce(filters.q);
   const query = useQuery({
     queryKey: ["members", { ...filters, q: search, page }],
@@ -155,6 +167,7 @@ export function Participants({ membership = false }: { membership?: boolean }) {
   };
   return (
     <>
+      {importing && <ExcelImport onClose={() => setImporting(false)} />}
       <PageHeading
         eyebrow="ҚАТЫСУШЫЛАР ЕСЕБІ"
         title={membership ? "Мүшелік жарналар" : "Қатысушылар"}
@@ -164,6 +177,10 @@ export function Participants({ membership = false }: { membership?: boolean }) {
             : "Әр қатысушының мәліметі мен төлемі бір жерде."
         }
       >
+        <Button variant="outline" onClick={() => setImporting(true)}>
+          <Upload size={22} />
+          Excel-ден қосу
+        </Button>
         <ExportButton filters={filters} />
         <Button onClick={() => setAdding(true)}>
           <Plus size={20} />
@@ -200,7 +217,7 @@ export function Participants({ membership = false }: { membership?: boolean }) {
             onClick={() => setShowFilters(!showFilters)}
           >
             <SlidersHorizontal size={18} />
-            Іріктеу
+            {showFilters ? "Сүзгілерді жасыру" : "Сүзгілерді көрсету"}
           </Button>
         </div>
         {showFilters && (
@@ -217,7 +234,7 @@ export function Participants({ membership = false }: { membership?: boolean }) {
                 />
                 Мұрағаттағы қатысушылар
               </label>
-              <label>
+              <label className="sort-field">
                 Реті{" "}
                 <select
                   value={filters.sort}
@@ -381,6 +398,15 @@ export function ParticipantDetail() {
                 </dd>
               </div>
             )}
+          </dl>
+          <h3 className="form-section-label">Жеке куәлік</h3>
+          <dl>
+            {IDENTITY_FIELDS.map(([key, label]) => (
+              <div key={key}>
+                <dt>{label}</dt>
+                <dd>{p[key] || "Көрсетілмеген"}</dd>
+              </div>
+            ))}
           </dl>
           {p.identityDocumentId ? (
             <Button

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Check, AlertTriangle } from "lucide-react";
 import {
   participantSchema,
+  IDENTITY_FIELDS,
   REGIONS,
   ageAt,
   ageGroup,
@@ -31,7 +32,7 @@ export function ParticipantForm({
   const [uploading, setUploading] = useState(false);
   const form = useForm<any>({
     resolver: zodResolver(participantSchema),
-    defaultValues: participant || {
+    defaultValues: {
       lastName: "",
       firstName: "",
       middleName: "",
@@ -40,6 +41,12 @@ export function ParticipantForm({
       birthDate: "",
       region: "",
       phone: "",
+      iin: "",
+      documentNumber: "",
+      issuedBy: "",
+      issueDate: "",
+      expiryDate: "",
+      ...participant,
     },
   });
   const birth = form.watch("birthDate");
@@ -128,6 +135,31 @@ export function ParticipantForm({
             {AGE_LABELS[ageGroup(ageAt(birth))]}
           </p>
         )}
+        <section aria-label="Жеке куәлік мәліметтері">
+          <h3 className="form-section-label">Жеке куәлік мәліметтері</h3>
+          <p className="small-note">
+            Құжатта жоқ мәліметті бос қалдырыңыз. Автоматты оқылған мәліметті
+            сақтамас бұрын тексеріңіз.
+          </p>
+          <div className="form-grid">
+            {IDENTITY_FIELDS.map(([key, label]) => (
+              <Field
+                key={key}
+                label={label}
+                error={form.formState.errors[key]?.message as string}
+              >
+                <input
+                  type={key.endsWith("Date") ? "date" : "text"}
+                  inputMode={key === "iin" ? "numeric" : undefined}
+                  maxLength={
+                    key === "iin" ? 12 : key === "issuedBy" ? 200 : undefined
+                  }
+                  {...form.register(key)}
+                />
+              </Field>
+            ))}
+          </div>
+        </section>
         <details className="optional-fields">
           <summary>Қосымша: латынша аты-жөні</summary>
           <div className="form-grid">

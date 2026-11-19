@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   NavLink,
+  useLocation,
   Routes,
   Route,
   Navigate,
@@ -154,6 +155,13 @@ function Login() {
   );
 }
 export default function App() {
+  const location = useLocation();
+  const activeTitle =
+    nav.find((item) =>
+      item.path === "/"
+        ? location.pathname === "/"
+        : location.pathname.startsWith(item.path),
+    )?.label || "Баптаулар";
   const navigate = useNavigate();
   const me = useQuery({
     queryKey: ["me"],
@@ -172,6 +180,36 @@ export default function App() {
   });
   const [mobile, setMobile] = useState(false),
     [help, setHelp] = useState(false);
+  const [compactNav, setCompactNav] = useState(
+    () => window.matchMedia("(max-width: 1100px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1100px)");
+    const update = () => {
+      setCompactNav(media.matches);
+      setMobile(false);
+    };
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (!mobile) return;
+    document.getElementById("navigation-close")?.focus();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobile(false);
+        document.getElementById("menu-toggle")?.focus();
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("keydown", close);
+      document.body.style.overflow = overflow;
+      document.getElementById("menu-toggle")?.focus();
+    };
+  }, [mobile]);
   if (me.isLoading) return <Loading />;
   if (me.isError)
     return <ErrorBox error={me.error} retry={() => void me.refetch()} />;
@@ -185,7 +223,24 @@ export default function App() {
           onClick={() => setMobile(false)}
         />
       )}
-      <aside className={`sidebar ${mobile ? "is-open" : ""}`}>
+      <aside
+        id="main-navigation"
+        className={`sidebar ${mobile ? "is-open" : ""}`}
+        inert={compactNav && !mobile}
+        aria-label="Негізгі мәзір"
+      >
+        <Button
+          className="nav-close"
+          id="navigation-close"
+          variant="outline"
+          onClick={() => {
+            setMobile(false);
+            document.getElementById("menu-toggle")?.focus();
+          }}
+        >
+          <X size={24} />
+          Мәзірді жабу
+        </Button>
         <Link to="/" onClick={() => setMobile(false)}>
           <Logo />
         </Link>
@@ -197,7 +252,7 @@ export default function App() {
           </div>
         </div>
         <span className="nav-caption">НЕГІЗГІ МӘЗІР</span>
-        <nav>
+        <nav aria-label="Бөлімдер">
           {nav.map((item) => (
             <NavLink
               key={item.path}
@@ -267,19 +322,23 @@ export default function App() {
           </div>
         </div>
       </aside>
-      <div className="main-shell">
+      <div className="main-shell" inert={compactNav && mobile}>
         <header className="topbar">
           <div className="topbar-start">
             <Button
               variant="ghost"
               className="mobile-menu"
+              id="menu-toggle"
+              aria-controls="main-navigation"
+              aria-expanded={mobile}
               aria-label={mobile ? "Мәзірді жабу" : "Мәзірді ашу"}
               onClick={() => setMobile(!mobile)}
             >
               {mobile ? <X size={24} /> : <Menu size={24} />}
+              <span>Мәзір</span>
             </Button>
             <span className="topbar-breadcrumb">
-              Ұйымды басқару <span>/</span> <strong>Жеке кабинет</strong>
+              Ұйымды басқару <span>/</span> <strong>{activeTitle}</strong>
             </span>
           </div>
           <div className="topbar-right">
@@ -317,7 +376,8 @@ export default function App() {
               <p>
                 «Қатысушы қосу» батырмасын басыңыз. Куәлікті жүктеңіз немесе
                 аты-жөнін қолмен жазыңыз. Аймағы мен телефонын көрсетіп,
-                сақтаңыз.
+                сақтаңыз. Дайын тізім болса, «Қатысушылар» бөліміндегі
+                «Excel-ден қосу» батырмасын басыңыз.
               </p>
             </li>
             <li>
