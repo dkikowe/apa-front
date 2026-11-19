@@ -259,9 +259,12 @@ export function Dashboard() {
                   [...data.regions]
                     .sort((a: any, b: any) => b.count - a.count)
                     .map((r: any) => (
-                      <div className="region-row" key={r._id}>
+                      <div
+                        className="region-row"
+                        key={r._id || "Аймағы көрсетілмеген"}
+                      >
                         <div>
-                          <span>{r._id}</span>
+                          <span>{r._id || "Аймағы көрсетілмеген"}</span>
                           <strong>{r.count}</strong>
                         </div>
                         <div className="region-track">
@@ -318,11 +321,14 @@ export function Dashboard() {
                 </div>
               </div>
               <div className="age-list">
-                {AGE_LABELS.map((label, i) => (
+                {[...AGE_LABELS, "Туған күні көрсетілмеген"].map((label, i) => (
                   <div key={label}>
                     <span>{label}</span>
                     <strong>
-                      {data.ages.find((x: any) => x._id === i)?.count || 0}
+                      {data.ages.find(
+                        (x: any) =>
+                          x._id === (i === AGE_LABELS.length ? null : i),
+                      )?.count || 0}
                     </strong>
                   </div>
                 ))}

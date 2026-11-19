@@ -15,6 +15,7 @@ type Preview = {
   missing: string[];
   total: number;
   ready: number;
+  incomplete: number;
   duplicates: number;
   errorCount: number;
   issues: { row: number; message: string }[];
@@ -27,6 +28,8 @@ type Preview = {
     documentNumber?: string;
     amount?: number;
     status: string;
+    missingFields?: string[];
+    notes?: string;
     message?: string;
   }[];
   draftId?: string;
@@ -262,9 +265,25 @@ export function ExcelImport({ onClose }: { onClose: () => void }) {
               </details>
               {preview.missing.length > 0 && (
                 <p className="field-error" role="alert">
-                  Міндетті бағандарды таңдаңыз: {preview.missing.join(", ")}.
+                  Қатысушыны тану үшін бағанды таңдаңыз:{" "}
+                  {preview.missing.join(", ")}.
                 </p>
               )}
+              {preview.incomplete > 0 && (
+                <p className="notice-strip">
+                  <strong>{preview.incomplete} қатысушы — «Толық емес».</strong>{" "}
+                  Мәліметі жетіспесе де қосылады. Кейін карточкасынан толықтыра
+                  аласыз.
+                </p>
+              )}
+              <p className="small-note">
+                Таңдалған парақ:{" "}
+                <strong>
+                  {preview.sheets.find((s) => s.id === preview.sheet)?.name}
+                </strong>
+                . Басқа парақты жоғарыдағы «Бағандарды сәйкестендіру және
+                парақты таңдау» бөлімінен таңдаңыз.
+              </p>
               {dirty && (
                 <p className="notice-strip">
                   Бағандар өзгерді. Сақтау алдында «Қайта тексеру» батырмасын
@@ -284,6 +303,13 @@ export function ExcelImport({ onClose }: { onClose: () => void }) {
                 <span>{preview.duplicates} қайталанған жол — қосылмайды</span>
                 <span>{preview.errorCount} қате</span>
               </section>
+              {!preview.mapping.amount && (
+                <p className="small-note">
+                  Тек қатысушылар қосылады. Төлем қосу үшін тиісті бағанды
+                  «Төленді, ₸» өрісіне сәйкестендіріп, төлем жылын және күнін
+                  таңдаңыз.
+                </p>
+              )}
               <p className="small-note">
                 Бұрын бар қатысушылардың мәліметтері өзгермейді. Бірдей ЖСН,
                 куәлік нөмірі немесе тегі + аты + туған күні қайталанған жазба
@@ -326,15 +352,28 @@ export function ExcelImport({ onClose }: { onClose: () => void }) {
                       {preview.examples.map((r) => (
                         <tr key={r.row}>
                           <td>{r.row}</td>
-                          <td>{r.name || "Аты-жөні жоқ"}</td>
+                          <td>
+                            {r.name || "Аты-жөні жоқ"}
+                            {r.notes && (
+                              <small style={{ whiteSpace: "pre-wrap" }}>
+                                {r.notes}
+                              </small>
+                            )}
+                          </td>
                           <td>{r.birthDate || "—"}</td>
                           <td>{r.region || "—"}</td>
                           <td>{r.phone || "—"}</td>
                           <td>{r.documentNumber || "—"}</td>
-                          <td>{money(r.amount || 0)}</td>
+                          <td>
+                            {preview.mapping.amount
+                              ? money(r.amount || 0)
+                              : "Қосылмайды"}
+                          </td>
                           <td>
                             {r.status === "ready"
-                              ? "Қосылады"
+                              ? r.missingFields?.length
+                                ? "Қосылады · Толық емес"
+                                : "Қосылады"
                               : r.status === "duplicate"
                                 ? "Қайталанған"
                                 : r.message}

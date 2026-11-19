@@ -20,7 +20,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, qs, send, queryClient, openDocument } from "./api";
-import { money, AGE_LABELS, FEE, IDENTITY_FIELDS } from "../../shared/domain";
+import {
+  money,
+  AGE_LABELS,
+  FEE,
+  IDENTITY_FIELDS,
+  missingParticipantFields,
+} from "../../shared/domain";
 import { Button } from "./components/ui/button";
 import {
   defaultFilters,
@@ -98,17 +104,21 @@ export function MemberTable({
                   </span>
                   <span>
                     <strong>
-                      {p.lastName} {p.firstName}
+                      {[p.lastName, p.firstName].filter(Boolean).join(" ") ||
+                        "Аты-жөні көрсетілмеген"}
                     </strong>
                     <small>{p.middleName || "Қатысушы"}</small>
+                    {missingParticipantFields(p).length > 0 && (
+                      <span className="incomplete-badge">Толық емес</span>
+                    )}
                   </span>
                 </Link>
               </td>
-              <td data-label="Аймақ">{p.region}</td>
+              <td data-label="Аймақ">{p.region || "Көрсетілмеген"}</td>
               {!compact && (
                 <>
                   <td className="member-extra" data-label="Жасы / туған күні">
-                    {p.age} жас
+                    {p.age == null ? "Көрсетілмеген" : `${p.age} жас`}
                     <small>
                       {p.birthDate}
                       <br />
@@ -116,7 +126,7 @@ export function MemberTable({
                     </small>
                   </td>
                   <td className="member-extra" data-label="Телефон">
-                    {p.phone}
+                    {p.phone || "Көрсетілмеген"}
                   </td>
                 </>
               )}
@@ -326,8 +336,12 @@ export function ParticipantDetail() {
         Қатысушылар тізіміне
       </Link>
       <PageHeading
-        title={`${p.lastName} ${p.firstName} ${p.middleName}`}
-        description={`${p.age} жас · ${AGE_LABELS[p.ageGroup]}`}
+        title={[p.lastName, p.firstName, p.middleName].filter(Boolean).join(" ") || "Аты-жөні көрсетілмеген"}
+        description={
+          p.age == null
+            ? "Туған күні көрсетілмеген"
+            : `${p.age} жас · ${AGE_LABELS[p.ageGroup]}`
+        }
       >
         <Button variant="outline" onClick={() => setEdit(true)}>
           <Pencil size={18} />
@@ -363,6 +377,13 @@ export function ParticipantDetail() {
           Бұл қатысушы мұрағатта. Жаңа төлем қосу үшін тізімге қайтарыңыз.
         </div>
       )}
+      {missingParticipantFields(p).length > 0 && (
+        <div className="notice-strip">
+          <strong>Толық емес.</strong> Толтыру керек:{" "}
+          {missingParticipantFields(p).join(", ")}. «Өзгерту» батырмасын басып,
+          кейін толықтыра аласыз.
+        </div>
+      )}
       <div className="detail-grid">
         <section className="panel profile-panel">
           <h2>Қатысушы туралы</h2>
@@ -372,14 +393,14 @@ export function ParticipantDetail() {
                 <CalendarDays size={18} />
                 Туған күні
               </dt>
-              <dd>{p.birthDate}</dd>
+              <dd>{p.birthDate || "Көрсетілмеген"}</dd>
             </div>
             <div>
               <dt>
                 <MapPin size={18} />
                 Аймағы
               </dt>
-              <dd>{p.region}</dd>
+              <dd>{p.region || "Көрсетілмеген"}</dd>
             </div>
             <div>
               <dt>
@@ -387,7 +408,11 @@ export function ParticipantDetail() {
                 Телефоны
               </dt>
               <dd>
-                <a href={`tel:${p.phone}`}>{p.phone}</a>
+                {p.phone ? (
+                  <a href={`tel:${p.phone}`}>{p.phone}</a>
+                ) : (
+                  "Көрсетілмеген"
+                )}
               </dd>
             </div>
             {(p.lastNameLatin || p.firstNameLatin) && (
@@ -399,6 +424,14 @@ export function ParticipantDetail() {
               </div>
             )}
           </dl>
+          {p.notes && (
+            <section>
+              <h3 className="form-section-label">Ескертпе</h3>
+              <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                {p.notes}
+              </p>
+            </section>
+          )}
           <h3 className="form-section-label">Жеке куәлік</h3>
           <dl>
             {IDENTITY_FIELDS.map(([key, label]) => (

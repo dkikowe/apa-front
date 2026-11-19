@@ -6,6 +6,7 @@ import { Check, AlertTriangle } from "lucide-react";
 import {
   participantSchema,
   IDENTITY_FIELDS,
+  missingParticipantFields,
   REGIONS,
   ageAt,
   ageGroup,
@@ -36,6 +37,7 @@ export function ParticipantForm({
       lastName: "",
       firstName: "",
       middleName: "",
+      notes: "",
       lastNameLatin: "",
       firstNameLatin: "",
       birthDate: "",
@@ -50,6 +52,7 @@ export function ParticipantForm({
     },
   });
   const birth = form.watch("birthDate");
+  const missing = missingParticipantFields(form.watch());
   return (
     <Modal
       title={participant ? "Қатысушыны өзгерту" : "Жаңа қатысушы қосу"}
@@ -90,15 +93,21 @@ export function ParticipantForm({
             }
           }}
         />
+        {missing.length > 0 && (
+          <p className="notice-strip">
+            <strong>Толық емес.</strong> Белгісіз мәліметтерді бос қалдырып,
+            сақтай аласыз. Кейін толықтырыңыз.
+          </p>
+        )}
         <div className="form-section-label">Қатысушы туралы</div>
         <div className="form-grid">
           {[
-            ["lastName", "Тегі *"],
-            ["firstName", "Аты *"],
+            ["lastName", "Тегі"],
+            ["firstName", "Аты"],
             ["middleName", "Әкесінің аты"],
-            ["birthDate", "Туған күні *"],
-            ["region", "Аймағы *"],
-            ["phone", "Телефон нөмірі *"],
+            ["birthDate", "Туған күні"],
+            ["region", "Аймағы"],
+            ["phone", "Телефон нөмірі"],
           ].map(([key, label]) => (
             <Field
               key={key}
@@ -132,7 +141,7 @@ export function ParticipantForm({
         {birth && ageAt(birth) >= 0 && (
           <p className="hint-strip">
             Жасы: <strong>{ageAt(birth)}</strong> ·{" "}
-            {AGE_LABELS[ageGroup(ageAt(birth))]}
+            {AGE_LABELS[ageGroup(ageAt(birth)) ?? 0]}
           </p>
         )}
         <section aria-label="Жеке куәлік мәліметтері">
@@ -172,6 +181,12 @@ export function ParticipantForm({
           </div>
           <p>Куәлікте қалай жазылса, солай енгізіңіз.</p>
         </details>
+        <Field
+          label="Ескертпе"
+          error={form.formState.errors.notes?.message as string}
+        >
+          <textarea rows={4} maxLength={4000} {...form.register("notes")} />
+        </Field>
         {error && (
           <p className="field-error" role="alert">
             {error}

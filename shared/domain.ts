@@ -29,11 +29,13 @@ export function today() {
   }).format(new Date());
 }
 export function ageAt(birthDate: string, at = today()) {
+  if (!birthDate) return NaN;
   const [y, m, d] = birthDate.slice(0, 10).split("-").map(Number);
   const [ay, am, ad] = at.split("-").map(Number);
   return ay - y - (am < m || (am === m && ad < d) ? 1 : 0);
 }
 export function ageGroup(age: number) {
+  if (!Number.isFinite(age)) return null;
   return age < 25 ? 0 : age < 45 ? 1 : age < 65 ? 2 : 3;
 }
 export function balance(paid: number) {
@@ -103,20 +105,29 @@ export const IDENTITY_FIELDS = [
 const optionalDate = z.union([dateSchema, z.literal("")]).default("");
 export const participantSchema = z
   .object({
-    lastName: name,
-    firstName: name,
+    lastName: z.string().trim().max(100).default(""),
+    firstName: z.string().trim().max(100).default(""),
+    notes: z.string().trim().max(4000).default(""),
     middleName: z.string().trim().max(100).default(""),
     lastNameLatin: z.string().trim().max(100).default(""),
     firstNameLatin: z.string().trim().max(100).default(""),
-    birthDate: dateSchema.refine(
-      (v) => v <= today() && ageAt(v) <= 120,
-      "Туған күнін тексеріңіз",
-    ),
-    region: z.enum(REGIONS, { error: "Аймақты таңдаңыз" }),
+    birthDate: z
+      .union([
+        dateSchema.refine(
+          (v) => v <= today() && ageAt(v) <= 120,
+          "Туған күнін тексеріңіз",
+        ),
+        z.literal(""),
+      ])
+      .default(""),
+    region: z
+      .union([z.enum(REGIONS, { error: "Аймақты таңдаңыз" }), z.literal("")])
+      .default(""),
     phone: z
       .string()
       .trim()
-      .regex(/^\+?[\d\s()-]{10,20}$/, "Телефон нөмірін тексеріңіз"),
+      .regex(/^(?:\+?[\d\s()-]{10,20})?$/, "Телефон нөмірін тексеріңіз")
+      .default(""),
     iin: z
       .string()
       .trim()
@@ -136,6 +147,16 @@ export const participantSchema = z
       .regex(/^[a-f\d]{24}$/i)
       .optional(),
   })
+  .refine(
+    (v) =>
+      Boolean(
+        v.lastName || v.firstName || v.phone || v.iin || v.documentNumber,
+      ),
+    {
+      message: "Кемінде аты-жөнін, телефонды немесе құжат нөмірін енгізіңіз",
+      path: ["lastName"],
+    },
+  )
   .refine((v) => !v.issueDate || !v.expiryDate || v.issueDate <= v.expiryDate, {
     message: "Жарамдылық мерзімі берілген күннен бұрын болмауы керек",
     path: ["expiryDate"],
@@ -162,3 +183,19 @@ export const financeSchema = z.object({
   description: z.string().trim().max(1000).default(""),
 });
 export type ParticipantInput = z.infer<typeof participantSchema>;
+
+// Patronymic, Latin spelling and attachment are optional; missing profile data
+// is shown separately from the participant's payment status.
+export const PROFILE_FIELDS = [
+  ["lastName", "Тегі"],
+  ["firstName", "Аты"],
+  ["birthDate", "Туған күні"],
+  ["region", "Аймақ"],
+  ["phone", "Телефон"],
+  ...IDENTITY_FIELDS,
+] as const;
+export function missingParticipantFields(p: Partial<ParticipantInput>) {
+  return PROFILE_FIELDS.filter(([key]) => !p[key]?.trim()).map(
+    ([, label]) => label,
+  );
+}

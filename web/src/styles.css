@@ -3012,3 +3012,15 @@ select,
     white-space: normal;
   }
 }
+
+.incomplete-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #fff2ce;
+  color: #704c05;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+}
