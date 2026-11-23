@@ -3024,3 +3024,21 @@ select,
   font-weight: 600;
   line-height: 1.5;
 }
+
+.validity-fields {
+  margin: 1.25rem 0 0;
+  padding: 1rem;
+  border: 1px solid #dce5e0;
+  border-radius: 12px;
+  min-width: 0;
+}
+.validity-fields legend {
+  font-weight: 700;
+  padding: 0 0.4rem;
+}
+.table-sub {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.9em;
+  color: #53646a;
+}

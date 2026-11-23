@@ -6,6 +6,7 @@ import { Check, AlertTriangle } from "lucide-react";
 import {
   participantSchema,
   IDENTITY_FIELDS,
+  validityPeriod,
   missingParticipantFields,
   REGIONS,
   ageAt,
@@ -42,6 +43,7 @@ export function ParticipantForm({
       firstNameLatin: "",
       birthDate: "",
       region: "",
+      village: "",
       phone: "",
       iin: "",
       documentNumber: "",
@@ -107,6 +109,7 @@ export function ParticipantForm({
             ["middleName", "Әкесінің аты"],
             ["birthDate", "Туған күні"],
             ["region", "Аймағы"],
+            ["village", "Ауыл (бар болса)"],
             ["phone", "Телефон нөмірі"],
           ].map(([key, label]) => (
             <Field
@@ -151,23 +154,48 @@ export function ParticipantForm({
             сақтамас бұрын тексеріңіз.
           </p>
           <div className="form-grid">
-            {IDENTITY_FIELDS.map(([key, label]) => (
-              <Field
-                key={key}
-                label={label}
-                error={form.formState.errors[key]?.message as string}
-              >
-                <input
-                  type={key.endsWith("Date") ? "date" : "text"}
-                  inputMode={key === "iin" ? "numeric" : undefined}
-                  maxLength={
-                    key === "iin" ? 12 : key === "issuedBy" ? 200 : undefined
-                  }
-                  {...form.register(key)}
-                />
-              </Field>
-            ))}
+            {IDENTITY_FIELDS.filter(([key]) => !key.endsWith("Date")).map(
+              ([key, label]) => (
+                <Field
+                  key={key}
+                  label={label}
+                  error={form.formState.errors[key]?.message as string}
+                >
+                  <input
+                    type={key.endsWith("Date") ? "date" : "text"}
+                    inputMode={key === "iin" ? "numeric" : undefined}
+                    maxLength={
+                      key === "iin" ? 12 : key === "issuedBy" ? 200 : undefined
+                    }
+                    {...form.register(key)}
+                  />
+                </Field>
+              ),
+            )}
           </div>
+          <fieldset className="validity-fields">
+            <legend>Жарамдылық мерзімі</legend>
+            <div className="form-grid">
+              <Field
+                label="Басталуы"
+                error={form.formState.errors.issueDate?.message as string}
+              >
+                <input type="date" {...form.register("issueDate")} />
+              </Field>
+              <Field
+                label="Аяқталуы"
+                error={form.formState.errors.expiryDate?.message as string}
+              >
+                <input type="date" {...form.register("expiryDate")} />
+              </Field>
+            </div>
+            <p className="hint-strip">
+              {validityPeriod(
+                form.watch("issueDate"),
+                form.watch("expiryDate"),
+              )}
+            </p>
+          </fieldset>
         </section>
         <details className="optional-fields">
           <summary>Қосымша: латынша аты-жөні</summary>
@@ -225,6 +253,7 @@ export function PaymentForm({
     year,
     amount: payment ? String(payment.amount / 100) : "",
     paymentDate: today(),
+    paymentTime: "",
     recipientName: "",
     receiptNumber: "",
     method: "",
@@ -288,10 +317,23 @@ export function PaymentForm({
           onFields={(fields) => {
             setData((old: any) => {
               const next = { ...old };
-              for (const [key, value] of Object.entries(fields))
+              for (const key of [
+                "amount",
+                "paymentDate",
+                "paymentTime",
+                "recipientName",
+                "receiptNumber",
+                "method",
+              ]) {
+                const value = fields[key];
                 if (!touched[key])
                   next[key] =
-                    key === "amount" ? String(Number(value) / 100) : value;
+                    value == null
+                      ? ""
+                      : key === "amount"
+                        ? String(Number(value) / 100)
+                        : value;
+              }
               return next;
             });
           }}
@@ -324,6 +366,15 @@ export function PaymentForm({
               value={data.paymentDate}
               onChange={(e) => update("paymentDate", e.target.value)}
             />
+          </Field>
+          <Field label="Төлем уақыты (Астана уақыты)">
+            <input
+              type="time"
+              step="1"
+              value={data.paymentTime}
+              onChange={(e) => update("paymentTime", e.target.value)}
+            />
+            <span className="small-note">Чекте жоқ болса, бос қалдырыңыз.</span>
           </Field>
           <Field label="Алушының атауы">
             <input

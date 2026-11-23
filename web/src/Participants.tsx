@@ -25,6 +25,7 @@ import {
   AGE_LABELS,
   FEE,
   IDENTITY_FIELDS,
+  validityPeriod,
   missingParticipantFields,
 } from "../../shared/domain";
 import { Button } from "./components/ui/button";
@@ -114,7 +115,10 @@ export function MemberTable({
                   </span>
                 </Link>
               </td>
-              <td data-label="Аймақ">{p.region || "Көрсетілмеген"}</td>
+              <td data-label="Аймақ">
+                {p.region || "Көрсетілмеген"}
+                {p.village && <small className="table-sub">{p.village}</small>}
+              </td>
               {!compact && (
                 <>
                   <td className="member-extra" data-label="Жасы / туған күні">
@@ -336,7 +340,10 @@ export function ParticipantDetail() {
         Қатысушылар тізіміне
       </Link>
       <PageHeading
-        title={[p.lastName, p.firstName, p.middleName].filter(Boolean).join(" ") || "Аты-жөні көрсетілмеген"}
+        title={
+          [p.lastName, p.firstName, p.middleName].filter(Boolean).join(" ") ||
+          "Аты-жөні көрсетілмеген"
+        }
         description={
           p.age == null
             ? "Туған күні көрсетілмеген"
@@ -400,7 +407,10 @@ export function ParticipantDetail() {
                 <MapPin size={18} />
                 Аймағы
               </dt>
-              <dd>{p.region || "Көрсетілмеген"}</dd>
+              <dd>
+                {[p.region, p.village].filter(Boolean).join(" · ") ||
+                  "Көрсетілмеген"}
+              </dd>
             </div>
             <div>
               <dt>
@@ -434,12 +444,18 @@ export function ParticipantDetail() {
           )}
           <h3 className="form-section-label">Жеке куәлік</h3>
           <dl>
-            {IDENTITY_FIELDS.map(([key, label]) => (
-              <div key={key}>
-                <dt>{label}</dt>
-                <dd>{p[key] || "Көрсетілмеген"}</dd>
-              </div>
-            ))}
+            {IDENTITY_FIELDS.filter(([key]) => !key.endsWith("Date")).map(
+              ([key, label]) => (
+                <div key={key}>
+                  <dt>{label}</dt>
+                  <dd>{p[key] || "Көрсетілмеген"}</dd>
+                </div>
+              ),
+            )}
+            <div>
+              <dt>Жарамдылық мерзімі</dt>
+              <dd>{validityPeriod(p.issueDate, p.expiryDate)}</dd>
+            </div>
           </dl>
           {p.identityDocumentId ? (
             <Button
@@ -505,7 +521,9 @@ export function ParticipantDetail() {
         <div className="panel-heading">
           <div>
             <h2>Төлем тарихы</h2>
-            <p>{year} жылғы жарнаға тіркелген төлемдер</p>
+            <p>
+              {year} жылғы жарнаға тіркелген төлемдер · Соңғы төлемдер алдымен
+            </p>
           </div>
           <span className="count-label">{payments.length} жазба</span>
         </div>
@@ -514,7 +532,7 @@ export function ParticipantDetail() {
             <table>
               <thead>
                 <tr>
-                  <th>Күні</th>
+                  <th>Төлем күні мен уақыты</th>
                   <th>Сома</th>
                   <th>Алушы / чек нөмірі</th>
                   <th>Чек</th>
@@ -524,7 +542,12 @@ export function ParticipantDetail() {
               <tbody>
                 {payments.map((pay: any) => (
                   <tr key={pay._id} className={pay.voidedAt ? "voided" : ""}>
-                    <td>{pay.paymentDate}</td>
+                    <td>
+                      {pay.paymentDate?.split("-").reverse().join(".")}
+                      <small className="table-sub">
+                        {pay.paymentTime || "Уақыты көрсетілмеген"}
+                      </small>
+                    </td>
                     <td className="strong">
                       {money(pay.amount)}
                       {pay.voidedAt && <small>Күші жойылған</small>}

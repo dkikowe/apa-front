@@ -37,7 +37,13 @@ export function DocumentUpload({
       callbacks.current.onFields(job.data.fields || {});
     }
   }, [id, job.data]);
-  const processing = id && !["done", "failed"].includes(job.data?.status);
+  const processing =
+    !!id && !["done", "failed"].includes(job.data?.status) && !job.isError;
+  const pending = uploading || processing;
+  useEffect(() => {
+    callbacks.current.onUploading?.(pending);
+    return () => callbacks.current.onUploading?.(false);
+  }, [pending]);
   return (
     <div className="upload-box">
       <div className="upload-symbol">
@@ -62,7 +68,10 @@ export function DocumentUpload({
               ? "Құжат оқылуда. Әзірге қолмен толтыра беруге болады."
               : job.data?.status === "done"
                 ? Object.keys(job.data.fields || {}).length
-                  ? "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
+                  ? kind === "receipt" &&
+                    (!job.data.fields.amount || !job.data.fields.paymentDate)
+                    ? "Чек толық оқылмады. Сома мен күнді тексеріп, жетіспейтінін толтырыңыз."
+                    : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
                   : "Мәліметтер табылмады. Төмендегі жолдарды қолмен толтырыңыз."
                 : job.data?.status === "failed"
                   ? job.data.error
@@ -99,7 +108,6 @@ export function DocumentUpload({
               setError((e as Error).message);
             } finally {
               setUploading(false);
-              callbacks.current.onUploading?.(false);
             }
           }}
         />

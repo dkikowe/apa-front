@@ -99,15 +99,25 @@ export const IDENTITY_FIELDS = [
   ["iin", "ЖСН (12 сан)"],
   ["documentNumber", "Куәлік нөмірі"],
   ["issuedBy", "Кім берді"],
-  ["issueDate", "Берілген күні"],
-  ["expiryDate", "Жарамдылық мерзімі"],
+  ["issueDate", "Жарамдылық мерзімінің басталуы"],
+  ["expiryDate", "Жарамдылық мерзімінің аяқталуы"],
 ] as const;
+export function validityPeriod(start?: string, end?: string) {
+  const date = (value?: string) =>
+    value ? value.split("-").reverse().join(".") : "Көрсетілмеген";
+  return `${date(start)} — ${date(end)}`;
+}
+export const paymentTimeSchema = z
+  .string()
+  .regex(/^(?:([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?)?$/, "Уақытты тексеріңіз")
+  .default("");
 const optionalDate = z.union([dateSchema, z.literal("")]).default("");
 export const participantSchema = z
   .object({
     lastName: z.string().trim().max(100).default(""),
     firstName: z.string().trim().max(100).default(""),
     notes: z.string().trim().max(4000).default(""),
+    village: z.string().trim().max(200).default(""),
     middleName: z.string().trim().max(100).default(""),
     lastNameLatin: z.string().trim().max(100).default(""),
     firstNameLatin: z.string().trim().max(100).default(""),
@@ -158,13 +168,14 @@ export const participantSchema = z
     },
   )
   .refine((v) => !v.issueDate || !v.expiryDate || v.issueDate <= v.expiryDate, {
-    message: "Жарамдылық мерзімі берілген күннен бұрын болмауы керек",
+    message: "Жарамдылық мерзімінің аяқталуы басталуынан бұрын болмауы керек",
     path: ["expiryDate"],
   });
 export const paymentSchema = z.object({
   year: z.number().int().min(2000).max(2100),
   amount: z.number().int().positive().max(1000000000000),
   paymentDate: dateSchema,
+  paymentTime: paymentTimeSchema,
   recipientName: z.string().trim().max(200).default(""),
   receiptNumber: z.string().trim().max(150).default(""),
   method: z.string().trim().max(100).default(""),
