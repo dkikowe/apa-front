@@ -2950,66 +2950,83 @@ select,
   border-radius: 8px;
   font-size: 18px;
 }
-@media (max-width: 1440px) {
-  .members-table .member-extra {
-    display: none;
-  }
+/* Labelled records stay readable at every window width and browser zoom. */
+.table-scroll {
+  overflow: visible;
+  min-width: 0;
 }
-@media (max-width: 760px) {
-  .members-table,
-  .members-table tbody {
-    display: block;
-    width: 100%;
-    min-width: 0;
-  }
-  .members-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-  .members-table tr {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-    padding: 20px;
-    border-bottom: 2px solid var(--border);
-  }
-  .members-table td,
-  .members-table .member-extra {
-    display: block;
-    width: auto;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    white-space: normal;
-    text-align: left;
-    overflow-wrap: anywhere;
-  }
-  .members-table td[data-label]::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 18px;
-    font-weight: 400;
-    color: var(--muted);
-    margin-bottom: 4px;
-  }
-  .members-table .member-primary,
-  .members-table .member-extra {
-    grid-column: 1 / -1;
-  }
-  .members-table .member-index {
-    display: none;
-  }
-  .members-table .avatar {
-    display: none;
-  }
-  .members-table .member-name {
-    min-width: 0;
-  }
-  .members-table .member-name strong {
-    white-space: normal;
+.record-table,
+.record-table tbody {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+}
+.record-table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.record-table caption {
+  display: block;
+}
+.record-table tbody tr {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 18px 24px;
+  padding: 24px;
+  border-top: 2px solid var(--border);
+  align-items: start;
+}
+.record-table tbody tr:nth-child(even) {
+  background: #f7faf8;
+}
+.record-table td {
+  display: block;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.record-table td[data-label]::before {
+  content: attr(data-label);
+  display: block;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.record-table td:last-child,
+.members-table .member-primary {
+  grid-column: 1 / -1;
+}
+.members-table .member-name {
+  align-items: flex-start;
+  min-width: 0;
+}
+.members-table .member-name > span:last-child {
+  min-width: 0;
+}
+.members-table .member-name strong {
+  white-space: normal;
+  font-size: 23px;
+}
+.members-table .row-open {
+  border: 1px solid #b6cfc3;
+  background: white;
+  color: var(--green);
+  padding: 12px 18px;
+  min-height: 54px;
+}
+@media (max-width: 600px) {
+  .record-table tbody tr {
+    padding: 18px;
   }
 }
 
@@ -3078,4 +3095,57 @@ select,
 }
 .uploaded-document-action {
   margin-top: 12px;
+}
+
+/* Flex/grid children must shrink before their content can wrap. */
+.content > *,
+.panel > *,
+.form-grid > *,
+.modal-heading > div,
+.panel-heading > *,
+.section-heading > *,
+.topbar > *,
+.pagination > *,
+.field,
+.sort-field {
+  min-width: 0;
+  max-width: 100%;
+}
+.content,
+.modal {
+  overflow-wrap: anywhere;
+}
+.field input,
+.field select,
+.field textarea,
+.sort-field select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.field input[type="checkbox"] {
+  width: 26px;
+}
+.list-toolbar {
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+}
+.list-toolbar .search-input {
+  grid-column: 1 / -1;
+}
+.extra-filters > *,
+.heading-actions > *,
+.modal-actions > *,
+.import-file-actions > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.row-actions,
+.pagination > div,
+.topbar-right {
+  flex-wrap: wrap;
+}
+.row-actions .button,
+.record-table .button,
+.record-table .row-open {
+  max-width: 100%;
 }

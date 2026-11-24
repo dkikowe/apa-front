@@ -69,35 +69,43 @@ export function MemberTable({
 }) {
   return (
     <div className="table-scroll">
-      <table className="members-table">
-        <thead>
-          <tr>
-            {!compact && <th>№</th>}
-            <th>Қатысушы</th>
-            <th>Елді мекен</th>
+      <table role="table" className="record-table members-table">
+        <thead role="rowgroup">
+          <tr role="row">
+            <th scope="col" role="columnheader">
+              Қатысушы
+            </th>
+            <th scope="col" role="columnheader">
+              Елді мекен
+            </th>
             {!compact && (
               <>
-                <th className="member-extra">Жасы / туған күні</th>
-                <th className="member-extra">Телефон</th>
+                <th scope="col" role="columnheader" className="member-extra">
+                  Жасы / туған күні
+                </th>
+                <th scope="col" role="columnheader" className="member-extra">
+                  Телефон
+                </th>
               </>
             )}
-            <th className="numeric">Төленді</th>
-            <th className="numeric">Қалды</th>
-            <th>Төлем жағдайы</th>
-            <th>
+            <th scope="col" role="columnheader" className="numeric">
+              Төленді
+            </th>
+            <th scope="col" role="columnheader" className="numeric">
+              Қалды
+            </th>
+            <th scope="col" role="columnheader">
+              Төлем жағдайы
+            </th>
+            <th scope="col" role="columnheader">
               <span className="sr-only">Қарау</span>
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup">
           {items.map((p: any, i: number) => (
-            <tr key={p._id}>
-              {!compact && (
-                <td className="member-index" data-label="№">
-                  {offset + i + 1}
-                </td>
-              )}
-              <td className="member-primary">
+            <tr role="row" key={p._id}>
+              <td role="cell" className="member-primary">
                 <Link
                   className="member-name"
                   to={`/participants/${p._id}?year=${year}`}
@@ -108,6 +116,7 @@ export function MemberTable({
                   </span>
                   <span>
                     <strong>
+                      {!compact && `${offset + i + 1}. `}
                       {[p.lastName, p.firstName].filter(Boolean).join(" ") ||
                         "Аты-жөні көрсетілмеген"}
                     </strong>
@@ -118,13 +127,17 @@ export function MemberTable({
                   </span>
                 </Link>
               </td>
-              <td data-label="Елді мекен">
+              <td role="cell" data-label="Елді мекен">
                 {regionLabel(p.region) || "Көрсетілмеген"}
                 {p.village && <small className="table-sub">{p.village}</small>}
               </td>
               {!compact && (
                 <>
-                  <td className="member-extra" data-label="Жасы / туған күні">
+                  <td
+                    role="cell"
+                    className="member-extra"
+                    data-label="Жасы / туған күні"
+                  >
                     {p.age == null ? "Көрсетілмеген" : `${p.age} жас`}
                     <small>
                       {p.birthDate}
@@ -132,12 +145,12 @@ export function MemberTable({
                       {AGE_LABELS[p.ageGroup]}
                     </small>
                   </td>
-                  <td className="member-extra" data-label="Телефон">
+                  <td role="cell" className="member-extra" data-label="Телефон">
                     {p.phone || "Көрсетілмеген"}
                   </td>
                 </>
               )}
-              <td className="numeric strong" data-label="Төленді">
+              <td role="cell" className="numeric strong" data-label="Төленді">
                 {money(p.totalPaid)}
                 {p.lastPaymentAt && (
                   <small>
@@ -154,13 +167,13 @@ export function MemberTable({
                   <small>Артық: {money(p.overpayment)}</small>
                 )}
               </td>
-              <td className="numeric" data-label="Қалды">
+              <td role="cell" className="numeric" data-label="Қалды">
                 {money(p.remaining)}
               </td>
-              <td data-label="Төлем жағдайы">
+              <td role="cell" data-label="Төлем жағдайы">
                 <Status status={p.status} />
               </td>
-              <td>
+              <td role="cell">
                 <Link
                   className="row-open"
                   aria-label={`${p.lastName} ${p.firstName}: карточканы ашу`}
@@ -567,38 +580,56 @@ export function ParticipantDetail() {
         </div>
         {payments.length ? (
           <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Төлем күні мен уақыты</th>
-                  <th>Сома</th>
-                  <th>Төлеген адам</th>
-                  <th>Алушы / чек нөмірі</th>
-                  <th>Чек</th>
-                  <th>Әрекеттер</th>
+            <table role="table" className="record-table">
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">
+                    Төлем күні мен уақыты
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Сома
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Төлеген адам
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Алушы / чек нөмірі
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Чек
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Әрекеттер
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {payments.map((pay: any) => (
-                  <tr key={pay._id} className={pay.voidedAt ? "voided" : ""}>
-                    <td>
+                  <tr
+                    role="row"
+                    key={pay._id}
+                    className={pay.voidedAt ? "voided" : ""}
+                  >
+                    <td role="cell" data-label="Төлем күні мен уақыты">
                       {pay.paymentDate?.split("-").reverse().join(".")}
                       <small className="table-sub">
                         {pay.paymentTime || "Уақыты көрсетілмеген"}
                       </small>
                     </td>
-                    <td className="strong">
+                    <td role="cell" className="strong" data-label="Сома">
                       {money(pay.amount)}
                       {pay.voidedAt && <small>Күші жойылған</small>}
                     </td>
-                    <td>{pay.payerName || "Көрсетілмеген"}</td>
-                    <td>
+                    <td role="cell" data-label="Төлеген адам">
+                      {pay.payerName || "Көрсетілмеген"}
+                    </td>
+                    <td role="cell" data-label="Алушы / чек нөмірі">
                       {pay.recipientName || "—"}
                       <small>
                         {pay.receiptNumber || "Нөмірі көрсетілмеген"}
                       </small>
                     </td>
-                    <td>
+                    <td role="cell" data-label="Чек">
                       {pay.receiptDocumentId ? (
                         <DocumentButton
                           documentId={pay.receiptDocumentId}
@@ -618,7 +649,7 @@ export function ParticipantDetail() {
                         </Button>
                       )}
                     </td>
-                    <td>
+                    <td role="cell" data-label="Әрекеттер">
                       {!pay.voidedAt && (
                         <div className="row-actions">
                           <Button

@@ -332,27 +332,45 @@ export function ExcelImport({ onClose }: { onClose: () => void }) {
               )}
               {preview.examples.length > 0 && (
                 <div className="table-scroll import-preview">
-                  <table>
+                  <table role="table" className="record-table">
                     <caption>
                       Алдын ала қарау — алғашқы {preview.examples.length} жол
                     </caption>
-                    <thead>
-                      <tr>
-                        <th>Жол</th>
-                        <th>Аты-жөні</th>
-                        <th>Туған күні</th>
-                        <th>Аймақ</th>
-                        <th>Телефон</th>
-                        <th>Куәлік №</th>
-                        <th>Төленді</th>
-                        <th>Нәтиже</th>
+                    <thead role="rowgroup">
+                      <tr role="row">
+                        <th scope="col" role="columnheader">
+                          Жол
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Аты-жөні
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Туған күні
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Аймақ
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Телефон
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Куәлік №
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Төленді
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Нәтиже
+                        </th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                       {preview.examples.map((r) => (
-                        <tr key={r.row}>
-                          <td>{r.row}</td>
-                          <td>
+                        <tr role="row" key={r.row}>
+                          <td role="cell" data-label="Жол">
+                            {r.row}
+                          </td>
+                          <td role="cell" data-label="Аты-жөні">
                             {r.name || "Аты-жөні жоқ"}
                             {r.notes && (
                               <small style={{ whiteSpace: "pre-wrap" }}>
@@ -360,16 +378,24 @@ export function ExcelImport({ onClose }: { onClose: () => void }) {
                               </small>
                             )}
                           </td>
-                          <td>{r.birthDate || "—"}</td>
-                          <td>{r.region || "—"}</td>
-                          <td>{r.phone || "—"}</td>
-                          <td>{r.documentNumber || "—"}</td>
-                          <td>
+                          <td role="cell" data-label="Туған күні">
+                            {r.birthDate || "—"}
+                          </td>
+                          <td role="cell" data-label="Аймақ">
+                            {r.region || "—"}
+                          </td>
+                          <td role="cell" data-label="Телефон">
+                            {r.phone || "—"}
+                          </td>
+                          <td role="cell" data-label="Куәлік №">
+                            {r.documentNumber || "—"}
+                          </td>
+                          <td role="cell" data-label="Төленді">
                             {preview.mapping.amount
                               ? money(r.amount || 0)
                               : "Қосылмайды"}
                           </td>
-                          <td>
+                          <td role="cell" data-label="Нәтиже">
                             {r.status === "ready"
                               ? r.missingFields?.length
                                 ? "Қосылады · Толық емес"

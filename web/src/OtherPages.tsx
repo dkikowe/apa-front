@@ -100,21 +100,33 @@ export function FinancePage() {
         ) : query.data?.items.length ? (
           <>
             <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Күні</th>
-                    <th>Түрі</th>
-                    <th>Санаты / түсініктеме</th>
-                    <th className="numeric">Сома</th>
-                    <th>Әрекеттер</th>
+              <table role="table" className="record-table">
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th scope="col" role="columnheader">
+                      Күні
+                    </th>
+                    <th scope="col" role="columnheader">
+                      Түрі
+                    </th>
+                    <th scope="col" role="columnheader">
+                      Санаты / түсініктеме
+                    </th>
+                    <th scope="col" role="columnheader" className="numeric">
+                      Сома
+                    </th>
+                    <th scope="col" role="columnheader">
+                      Әрекеттер
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                   {query.data.items.map((t: any) => (
-                    <tr key={t._id}>
-                      <td>{t.date}</td>
-                      <td>
+                    <tr role="row" key={t._id}>
+                      <td role="cell" data-label="Күні">
+                        {t.date}
+                      </td>
+                      <td role="cell" data-label="Түрі">
                         <span className={`transaction-type ${t.type}`}>
                           {t.type === "income" ? (
                             <ArrowDownLeft size={17} />
@@ -124,12 +136,18 @@ export function FinancePage() {
                           {t.type === "income" ? "Кіріс" : "Шығыс"}
                         </span>
                       </td>
-                      <td>
+                      <td role="cell" data-label="Санаты / түсініктеме">
                         <strong>{t.category}</strong>
                         <small>{t.description}</small>
                       </td>
-                      <td className="numeric strong">{money(t.amount)}</td>
-                      <td>
+                      <td
+                        role="cell"
+                        className="numeric strong"
+                        data-label="Сома"
+                      >
+                        {money(t.amount)}
+                      </td>
+                      <td role="cell" data-label="Әрекеттер">
                         <div className="row-actions">
                           <Button
                             size="sm"
