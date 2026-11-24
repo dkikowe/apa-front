@@ -171,8 +171,8 @@ export const defaultFilters = {
   age: "",
   status: "",
   archived: "false",
-  sort: "name",
-  direction: "asc",
+  sort: "paymentTime",
+  direction: "desc",
 };
 export type FilterState = typeof defaultFilters;
 export function YearSelect({
