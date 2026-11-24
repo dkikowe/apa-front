@@ -205,18 +205,21 @@ export function ParticipantForm({
             </p>
           </fieldset>
         </section>
-        <details className="optional-fields">
-          <summary>Қосымша: латынша аты-жөні</summary>
+        <section aria-label="Куәліктегі ағылшынша аты-жөні">
+          <h3 className="form-section-label">Куәліктегі ағылшынша аты-жөні</h3>
           <div className="form-grid">
-            <Field label="Латынша тегі">
+            <Field label="Ағылшынша тегі (Surname)">
               <input {...form.register("lastNameLatin")} />
             </Field>
-            <Field label="Латынша аты">
+            <Field label="Ағылшынша аты (Given names)">
               <input {...form.register("firstNameLatin")} />
             </Field>
           </div>
-          <p>Куәлікте қалай жазылса, солай енгізіңіз.</p>
-        </details>
+          <p className="small-note">
+            Куәліктен автоматты оқылады. Жазылуын тексеріңіз; құжатта жоқ болса,
+            бос қалдырыңыз.
+          </p>
+        </section>
         <Field
           label="Ескертпе"
           error={form.formState.errors.notes?.message as string}

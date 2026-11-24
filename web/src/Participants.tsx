@@ -18,6 +18,7 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { sortPayments } from "../../shared/payment-order";
 import { regionLabel, locationLabel } from "../../shared/locations";
 import { api, qs, send, queryClient } from "./api";
 import {
@@ -138,6 +139,17 @@ export function MemberTable({
               )}
               <td className="numeric strong" data-label="Төленді">
                 {money(p.totalPaid)}
+                {p.lastPaymentAt && (
+                  <small>
+                    Соңғы төлем:{" "}
+                    {p.lastPaymentAt
+                      .slice(0, 10)
+                      .split("-")
+                      .reverse()
+                      .join(".")}{" "}
+                    {p.lastPaymentAt.slice(11) || "(уақыты жоқ)"}
+                  </small>
+                )}
                 {p.overpayment > 0 && (
                   <small>Артық: {money(p.overpayment)}</small>
                 )}
@@ -254,11 +266,23 @@ export function Participants({ membership = false }: { membership?: boolean }) {
                 Реті{" "}
                 <select
                   value={filters.sort}
-                  onChange={(e) => update({ ...filters, sort: e.target.value })}
+                  onChange={(e) =>
+                    update({
+                      ...filters,
+                      sort: e.target.value,
+                      direction:
+                        e.target.value === "paymentTime"
+                          ? "desc"
+                          : filters.direction,
+                    })
+                  }
                 >
                   <option value="name">Аты-жөні бойынша</option>
                   <option value="age">Жасы бойынша</option>
                   <option value="paid">Төленген сомасы бойынша</option>
+                  <option value="paymentTime">
+                    Соңғы төлем күні мен уақыты бойынша
+                  </option>
                 </select>
               </label>
               <select
@@ -268,8 +292,16 @@ export function Participants({ membership = false }: { membership?: boolean }) {
                   update({ ...filters, direction: e.target.value })
                 }
               >
-                <option value="asc">Өсу ретімен</option>
-                <option value="desc">Кему ретімен</option>
+                <option value="asc">
+                  {filters.sort === "paymentTime"
+                    ? "Ескі төлемдер алдымен"
+                    : "Өсу ретімен"}
+                </option>
+                <option value="desc">
+                  {filters.sort === "paymentTime"
+                    ? "Жаңа төлемдер алдымен"
+                    : "Кему ретімен"}
+                </option>
               </select>
             </div>
           </div>
@@ -326,6 +358,7 @@ export function ParticipantDetail() {
     [payment, setPayment] = useState<any>(null),
     [confirm, setConfirm] = useState<any>(null);
   const [receiptText, setReceiptText] = useState("");
+  const [paymentOrder, setPaymentOrder] = useState<"asc" | "desc">("desc");
   const query = useQuery({
     queryKey: ["participant", id, year],
     queryFn: () => api(`/participants/${id}?year=${year}`),
@@ -333,7 +366,10 @@ export function ParticipantDetail() {
   if (query.isLoading) return <Loading />;
   if (query.isError) return <ErrorBox error={query.error} />;
   const p = query.data;
-  const payments = p.payments.filter((x: any) => x.year === year);
+  const payments = sortPayments<any>(
+    p.payments.filter((x: any) => x.year === year),
+    paymentOrder,
+  );
   return (
     <>
       <Link to="/participants" className="back-link">
@@ -513,10 +549,20 @@ export function ParticipantDetail() {
         <div className="panel-heading">
           <div>
             <h2>Төлем тарихы</h2>
-            <p>
-              {year} жылғы жарнаға тіркелген төлемдер · Соңғы төлемдер алдымен
-            </p>
+            <p>{year} жылғы жарнаға тіркелген төлемдер</p>
           </div>
+          <label className="sort-field">
+            Төлем күні мен уақыты
+            <select
+              value={paymentOrder}
+              onChange={(e) =>
+                setPaymentOrder(e.target.value as "asc" | "desc")
+              }
+            >
+              <option value="desc">Жаңа төлемдер алдымен</option>
+              <option value="asc">Ескі төлемдер алдымен</option>
+            </select>
+          </label>
           <span className="count-label">{payments.length} жазба</span>
         </div>
         {payments.length ? (
