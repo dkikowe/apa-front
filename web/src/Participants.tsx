@@ -534,6 +534,7 @@ export function ParticipantDetail() {
                 <tr>
                   <th>Төлем күні мен уақыты</th>
                   <th>Сома</th>
+                  <th>Төлеген адам</th>
                   <th>Алушы / чек нөмірі</th>
                   <th>Чек</th>
                   <th>Әрекеттер</th>
@@ -552,6 +553,7 @@ export function ParticipantDetail() {
                       {money(pay.amount)}
                       {pay.voidedAt && <small>Күші жойылған</small>}
                     </td>
+                    <td>{pay.payerName || "Көрсетілмеген"}</td>
                     <td>
                       {pay.recipientName || "—"}
                       <small>

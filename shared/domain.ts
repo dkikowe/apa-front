@@ -178,6 +178,7 @@ export const paymentSchema = z.object({
   paymentTime: paymentTimeSchema,
   receiptText: z.string().max(20000).default(""),
   recipientName: z.string().trim().max(200).default(""),
+  payerName: z.string().trim().max(200).default(""),
   receiptNumber: z.string().trim().max(150).default(""),
   method: z.string().trim().max(100).default(""),
   receiptDocumentId: z

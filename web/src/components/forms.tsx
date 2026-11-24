@@ -264,6 +264,7 @@ export function PaymentForm({
     paymentTime: "",
     receiptText: "",
     recipientName: "",
+    payerName: "",
     receiptNumber: "",
     method: "",
     notes: "",
@@ -289,6 +290,7 @@ export function PaymentForm({
         "paymentDate",
         "paymentTime",
         "recipientName",
+        "payerName",
         "receiptNumber",
         "method",
       ]) {
@@ -398,6 +400,16 @@ export function PaymentForm({
               onChange={(e) => update("paymentTime", e.target.value)}
             />
             <span className="small-note">Чекте жоқ болса, бос қалдырыңыз.</span>
+          </Field>
+          <Field label="Төлеген адам">
+            <input
+              value={data.payerName}
+              onChange={(e) => update("payerName", e.target.value)}
+              placeholder="Чектегі төлеушінің аты-жөні"
+            />
+            <span className="small-note">
+              Басқа адам төлеген болса, чекте көрсетілген адамды жазыңыз.
+            </span>
           </Field>
           <Field label="Алушының атауы">
             <input
