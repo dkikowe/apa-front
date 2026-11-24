@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Upload, FileCheck2, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../api";
+import { DocumentButton } from "./DocumentButton";
 import { Button } from "./ui/button";
 export function DocumentUpload({
   kind,
@@ -122,6 +123,11 @@ export function DocumentUpload({
         >
           {kind === "identity" ? "Жеке куәлікті жүктеу" : "Төлем чегін жүктеу"}
         </Button>
+        {id && (
+          <div className="uploaded-document-action">
+            <DocumentButton documentId={id} kind={kind} compact />
+          </div>
+        )}
         {(error || job.isError) && (
           <p role="alert" className="field-error">
             {error || "Құжаттың күйін тексеру мүмкін болмады."} Қолмен толтыра

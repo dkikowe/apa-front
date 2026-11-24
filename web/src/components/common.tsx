@@ -24,17 +24,19 @@ export function Modal({
   description,
   children,
   onClose,
+  className = "",
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   onClose: () => void;
+  className?: string;
 }) {
   return (
     <Dialog.Root open onOpenChange={(v) => !v && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="modal-overlay" />
-        <Dialog.Content className="modal">
+        <Dialog.Content className={`modal ${className}`}>
           <div className="modal-heading">
             <div>
               <Dialog.Title>{title}</Dialog.Title>

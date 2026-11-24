@@ -70,16 +70,30 @@ export async function downloadReport(
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export async function openDocument(id: string) {
-  const tab = window.open("about:blank", "_blank");
-  try {
-    const { url } = await api(`/documents/${id}/url`);
-    if (tab) {
-      tab.opener = null;
-      tab.location.href = url;
-    } else window.location.assign(url);
-  } catch (e) {
-    tab?.close();
-    throw e;
+export async function getDocumentFile(id: string, signal: AbortSignal) {
+  const meta = await api<{ mime: string; originalName?: string }>(
+    `/documents/${id}`,
+    { signal },
+  );
+  if (!["application/pdf", "image/jpeg", "image/png"].includes(meta.mime))
+    throw new Error("Құжаттың бұл түрін көрсету мүмкін емес.");
+  const response = await fetch(`/api/documents/${id}/content`, {
+    credentials: "same-origin",
+    signal,
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      csrf = "";
+      queryClient.setQueryData(["me"], null);
+    }
+    throw new Error(error.message || "Құжат жүктелмеді. Қайта көріңіз.");
   }
+  return {
+    blob: await response.blob(),
+    mime: meta.mime,
+    name:
+      meta.originalName ||
+      `document-${id}.${meta.mime === "application/pdf" ? "pdf" : meta.mime === "image/png" ? "png" : "jpg"}`,
+  };
 }

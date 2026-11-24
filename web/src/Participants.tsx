@@ -10,7 +10,6 @@ import {
   Pencil,
   Archive,
   RotateCcw,
-  FileText,
   Phone,
   MapPin,
   CalendarDays,
@@ -20,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { regionLabel, locationLabel } from "../../shared/locations";
-import { api, qs, send, queryClient, openDocument } from "./api";
+import { api, qs, send, queryClient } from "./api";
 import {
   money,
   AGE_LABELS,
@@ -45,6 +44,7 @@ import {
   YearSelect,
   Modal,
 } from "./components/common";
+import { DocumentButton } from "./components/DocumentButton";
 import { ExcelImport } from "./components/ExcelImport";
 import { ParticipantForm, PaymentForm } from "./components/forms";
 export function useDebounce<T>(value: T, ms = 300) {
@@ -334,8 +334,6 @@ export function ParticipantDetail() {
   if (query.isError) return <ErrorBox error={query.error} />;
   const p = query.data;
   const payments = p.payments.filter((x: any) => x.year === year);
-  const showDocument = (documentId: string) =>
-    void openDocument(documentId).catch((e) => toast.error(e.message));
   return (
     <>
       <Link to="/participants" className="back-link">
@@ -458,13 +456,7 @@ export function ParticipantDetail() {
             </div>
           </dl>
           {p.identityDocumentId ? (
-            <Button
-              variant="outline"
-              onClick={() => showDocument(p.identityDocumentId)}
-            >
-              <FileText size={18} />
-              Куәлікті ашу
-            </Button>
+            <DocumentButton documentId={p.identityDocumentId} kind="identity" />
           ) : (
             <p className="muted">Куәлік жүктелмеген</p>
           )}
@@ -562,14 +554,11 @@ export function ParticipantDetail() {
                     </td>
                     <td>
                       {pay.receiptDocumentId ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => showDocument(pay.receiptDocumentId)}
-                        >
-                          <FileText size={17} />
-                          Ашу
-                        </Button>
+                        <DocumentButton
+                          documentId={pay.receiptDocumentId}
+                          kind="receipt"
+                          compact
+                        />
                       ) : !pay.receiptText ? (
                         "—"
                       ) : null}
