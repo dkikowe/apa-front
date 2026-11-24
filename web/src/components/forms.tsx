@@ -8,7 +8,6 @@ import {
   IDENTITY_FIELDS,
   validityPeriod,
   missingParticipantFields,
-  REGIONS,
   ageAt,
   ageGroup,
   AGE_LABELS,
@@ -20,6 +19,8 @@ import {
 import { api, send, queryClient, ApiError } from "../api";
 import { Button } from "./ui/button";
 import { Modal, Field } from "./common";
+import { LocationSelect } from "./LocationSelect";
+import { ReceiptTextInput } from "./ReceiptTextInput";
 import { DocumentUpload } from "./DocumentUpload";
 export function ParticipantForm({
   participant,
@@ -108,8 +109,6 @@ export function ParticipantForm({
             ["firstName", "Аты"],
             ["middleName", "Әкесінің аты"],
             ["birthDate", "Туған күні"],
-            ["region", "Аймағы"],
-            ["village", "Ауыл (бар болса)"],
             ["phone", "Телефон нөмірі"],
           ].map(([key, label]) => (
             <Field
@@ -117,30 +116,39 @@ export function ParticipantForm({
               label={label}
               error={form.formState.errors[key]?.message as string}
             >
-              {key === "region" ? (
-                <select {...form.register(key)}>
-                  <option value="">Аймақты таңдаңыз</option>
-                  {REGIONS.map((r) => (
-                    <option key={r}>{r}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type={
-                    key === "birthDate"
-                      ? "date"
-                      : key === "phone"
-                        ? "tel"
-                        : "text"
-                  }
-                  max={key === "birthDate" ? today() : undefined}
-                  placeholder={key === "phone" ? "+7 7__ ___ __ __" : undefined}
-                  {...form.register(key)}
-                />
-              )}
+              <input
+                type={
+                  key === "birthDate"
+                    ? "date"
+                    : key === "phone"
+                      ? "tel"
+                      : "text"
+                }
+                max={key === "birthDate" ? today() : undefined}
+                placeholder={key === "phone" ? "+7 7__ ___ __ __" : undefined}
+                {...form.register(key)}
+              />
             </Field>
           ))}
         </div>
+        <LocationSelect
+          region={form.watch("region") || ""}
+          village={form.watch("village") || ""}
+          error={
+            (form.formState.errors.region?.message ||
+              form.formState.errors.village?.message) as string
+          }
+          onChange={(region, village) => {
+            form.setValue("region", region, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+            form.setValue("village", village, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }}
+        />
         {birth && ageAt(birth) >= 0 && (
           <p className="hint-strip">
             Жасы: <strong>{ageAt(birth)}</strong> ·{" "}
@@ -254,6 +262,7 @@ export function PaymentForm({
     amount: payment ? String(payment.amount / 100) : "",
     paymentDate: today(),
     paymentTime: "",
+    receiptText: "",
     recipientName: "",
     receiptNumber: "",
     method: "",
@@ -262,6 +271,7 @@ export function PaymentForm({
     ...(payment ? { amount: String(payment.amount / 100) } : {}),
   });
   const [uploading, setUploading] = useState(false);
+  const [readingText, setReadingText] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -271,8 +281,33 @@ export function PaymentForm({
     setTouched((old) => ({ ...old, [key]: true }));
     setDuplicate(false);
   };
+  const applyReceiptFields = (fields: Record<string, string | number>) => {
+    setData((old: any) => {
+      const next = { ...old };
+      for (const key of [
+        "amount",
+        "paymentDate",
+        "paymentTime",
+        "recipientName",
+        "receiptNumber",
+        "method",
+      ]) {
+        const value = fields[key];
+        if (!touched[key])
+          next[key] =
+            value == null
+              ? ""
+              : key === "amount"
+                ? String(Number(value) / 100)
+                : value;
+      }
+      return next;
+    });
+
+    setDuplicate(false);
+  };
   const save = async (confirmDuplicate = false) => {
-    if (uploading) return;
+    if (uploading || readingText) return;
     setBusy(true);
     setError("");
     try {
@@ -302,7 +337,7 @@ export function PaymentForm({
     <Modal
       title={payment ? "Төлемді түзету" : "Төлем қосу"}
       description={`${participant.lastName} ${participant.firstName} · жылдық жарна ${money(FEE)}`}
-      onClose={() => !busy && !uploading && onClose()}
+      onClose={() => !busy && !uploading && !readingText && onClose()}
     >
       <form
         onSubmit={(e) => {
@@ -312,30 +347,18 @@ export function PaymentForm({
       >
         <DocumentUpload
           kind="receipt"
+          disabled={busy || readingText}
           onUploading={setUploading}
           onDocument={(id) => update("receiptDocumentId", id)}
-          onFields={(fields) => {
-            setData((old: any) => {
-              const next = { ...old };
-              for (const key of [
-                "amount",
-                "paymentDate",
-                "paymentTime",
-                "recipientName",
-                "receiptNumber",
-                "method",
-              ]) {
-                const value = fields[key];
-                if (!touched[key])
-                  next[key] =
-                    value == null
-                      ? ""
-                      : key === "amount"
-                        ? String(Number(value) / 100)
-                        : value;
-              }
-              return next;
-            });
+          onFields={applyReceiptFields}
+        />
+        <ReceiptTextInput
+          initialText={payment?.receiptText || ""}
+          disabled={uploading || busy}
+          onReading={setReadingText}
+          onFields={(fields, text) => {
+            applyReceiptFields(fields);
+            setData((old: any) => ({ ...old, receiptText: text }));
           }}
         />
         <div className="form-grid">
@@ -415,7 +438,7 @@ export function PaymentForm({
               <Button
                 type="button"
                 variant="outline"
-                disabled={busy || uploading}
+                disabled={busy || uploading || readingText}
                 onClick={() => void save(true)}
               >
                 Тексердім, бөлек төлем ретінде қосу
@@ -432,12 +455,12 @@ export function PaymentForm({
           <Button
             type="button"
             variant="outline"
-            disabled={busy || uploading}
+            disabled={busy || uploading || readingText}
             onClick={onClose}
           >
             Бас тарту
           </Button>
-          <Button disabled={busy || duplicate || uploading}>
+          <Button disabled={busy || duplicate || uploading || readingText}>
             <Check size={18} />
             {busy ? "Сақталуда…" : "Төлемді сақтау"}
           </Button>

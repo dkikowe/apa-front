@@ -19,6 +19,7 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { regionLabel, locationLabel } from "../../shared/locations";
 import { api, qs, send, queryClient, openDocument } from "./api";
 import {
   money,
@@ -42,6 +43,7 @@ import {
   ExportButton,
   Confirm,
   YearSelect,
+  Modal,
 } from "./components/common";
 import { ExcelImport } from "./components/ExcelImport";
 import { ParticipantForm, PaymentForm } from "./components/forms";
@@ -71,7 +73,7 @@ export function MemberTable({
           <tr>
             {!compact && <th>№</th>}
             <th>Қатысушы</th>
-            <th>Аймағы</th>
+            <th>Елді мекен</th>
             {!compact && (
               <>
                 <th className="member-extra">Жасы / туған күні</th>
@@ -115,8 +117,8 @@ export function MemberTable({
                   </span>
                 </Link>
               </td>
-              <td data-label="Аймақ">
-                {p.region || "Көрсетілмеген"}
+              <td data-label="Елді мекен">
+                {regionLabel(p.region) || "Көрсетілмеген"}
                 {p.village && <small className="table-sub">{p.village}</small>}
               </td>
               {!compact && (
@@ -323,6 +325,7 @@ export function ParticipantDetail() {
   const [edit, setEdit] = useState(false),
     [payment, setPayment] = useState<any>(null),
     [confirm, setConfirm] = useState<any>(null);
+  const [receiptText, setReceiptText] = useState("");
   const query = useQuery({
     queryKey: ["participant", id, year],
     queryFn: () => api(`/participants/${id}?year=${year}`),
@@ -405,12 +408,9 @@ export function ParticipantDetail() {
             <div>
               <dt>
                 <MapPin size={18} />
-                Аймағы
+                Елді мекен
               </dt>
-              <dd>
-                {[p.region, p.village].filter(Boolean).join(" · ") ||
-                  "Көрсетілмеген"}
-              </dd>
+              <dd>{locationLabel(p.region, p.village) || "Көрсетілмеген"}</dd>
             </div>
             <div>
               <dt>
@@ -568,8 +568,17 @@ export function ParticipantDetail() {
                           <FileText size={17} />
                           Ашу
                         </Button>
-                      ) : (
+                      ) : !pay.receiptText ? (
                         "—"
+                      ) : null}
+                      {pay.receiptText && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setReceiptText(pay.receiptText)}
+                        >
+                          Мәтін
+                        </Button>
                       )}
                     </td>
                     <td>
@@ -616,6 +625,17 @@ export function ParticipantDetail() {
           />
         )}
       </section>
+      {receiptText && (
+        <Modal
+          title="Чек мәтіні"
+          description="WhatsApp-тан сақталған бастапқы мәтін"
+          onClose={() => setReceiptText("")}
+        >
+          <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+            {receiptText}
+          </p>
+        </Modal>
+      )}
       {edit && (
         <ParticipantForm participant={p} onClose={() => setEdit(false)} />
       )}

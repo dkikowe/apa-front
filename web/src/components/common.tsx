@@ -18,6 +18,7 @@ import {
   today,
 } from "../../../shared/domain";
 import { downloadReport } from "../api";
+import { regionLabel } from "../../../shared/locations";
 export function Modal({
   title,
   description,
@@ -223,7 +224,9 @@ export function Filters({
         >
           <option value="">Барлық аймақ</option>
           {REGIONS.map((x) => (
-            <option key={x}>{x}</option>
+            <option key={x} value={x}>
+              {regionLabel(x)}
+            </option>
           ))}
         </select>
       </Field>

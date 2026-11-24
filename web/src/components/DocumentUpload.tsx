@@ -9,11 +9,13 @@ export function DocumentUpload({
   onFields,
   onDocument,
   onUploading,
+  disabled = false,
 }: {
   kind: "identity" | "receipt";
   onFields: (fields: any) => void;
   onDocument: (id: string) => void;
   onUploading?: (uploading: boolean) => void;
+  disabled?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const applied = useRef("");
@@ -115,7 +117,7 @@ export function DocumentUpload({
           type="button"
           size="sm"
           variant="outline"
-          disabled={uploading || !!processing}
+          disabled={disabled || uploading || !!processing}
           onClick={() => input.current?.click()}
         >
           {kind === "identity" ? "Жеке куәлікті жүктеу" : "Төлем чегін жүктеу"}
