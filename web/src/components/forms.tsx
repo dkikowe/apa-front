@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
   today,
   FEE,
 } from "../../../shared/domain";
+import { identityAutofillUpdates } from "../../../shared/document-recognition";
 import { api, send, queryClient, ApiError } from "../api";
 import { Button } from "./ui/button";
 import { Modal, Field } from "./common";
@@ -55,6 +56,19 @@ export function ParticipantForm({
       ...participant,
     },
   });
+  const autoFilled = useRef(new Set<string>());
+  const applyIdentityFields = (fields: Record<string, unknown>) => {
+    const updates = identityAutofillUpdates(
+      fields,
+      autoFilled.current,
+      (key) => form.getFieldState(key).isDirty,
+    );
+    for (const [key, value] of Object.entries(updates)) {
+      form.setValue(key, value, { shouldValidate: true });
+      if (value) autoFilled.current.add(key);
+      else autoFilled.current.delete(key);
+    }
+  };
   const birth = form.watch("birthDate");
   const missing = missingParticipantFields(form.watch());
   return (
@@ -88,14 +102,13 @@ export function ParticipantForm({
       >
         <DocumentUpload
           kind="identity"
+          initialDocumentId={participant?.identityDocumentId || ""}
           onUploading={setUploading}
-          onDocument={(id) => form.setValue("identityDocumentId", id)}
-          onFields={(fields) => {
-            for (const [key, value] of Object.entries(fields)) {
-              if (!form.getFieldState(key).isDirty)
-                form.setValue(key, value, { shouldValidate: true });
-            }
+          onDocument={(id) => {
+            applyIdentityFields({});
+            form.setValue("identityDocumentId", id);
           }}
+          onFields={applyIdentityFields}
         />
         {missing.length > 0 && (
           <p className="notice-strip">

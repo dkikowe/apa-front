@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Upload, FileCheck2, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
+import { missingDocumentFields } from "../../../shared/document-recognition";
 import { api, send, queryClient } from "../api";
 import { DocumentButton } from "./DocumentButton";
 import { Button } from "./ui/button";
@@ -42,18 +43,9 @@ export function DocumentUpload({
       callbacks.current.onFields(job.data.fields || {});
     }
   }, [id, job.data]);
-  const missingReceiptFields =
-    kind === "receipt" && job.data?.status === "done"
-      ? Object.entries({
-          amount: "сома",
-          paymentDate: "күн",
-          paymentTime: "уақыт",
-          receiptNumber: "чек нөмірі",
-          recipientName: "алушы",
-          method: "төлем тәсілі",
-        })
-          .filter(([key]) => !job.data.fields?.[key])
-          .map(([, label]) => label)
+  const missingFields =
+    job.data?.status === "done"
+      ? missingDocumentFields(kind, job.data.fields || {})
       : [];
   const processing =
     !!id && !["done", "failed"].includes(job.data?.status) && !job.isError;
@@ -85,11 +77,9 @@ export function DocumentUpload({
             : processing
               ? "Құжат оқылуда. Әзірге қолмен толтыра беруге болады."
               : job.data?.status === "done"
-                ? Object.keys(job.data.fields || {}).length
-                  ? missingReceiptFields.length
-                    ? `Чекте табылмады: ${missingReceiptFields.join(", ")}. Қайта оқытыңыз немесе қолмен толтырыңыз.`
-                    : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
-                  : "Мәліметтер табылмады. Төмендегі жолдарды қолмен толтырыңыз."
+                ? missingFields.length
+                  ? `${kind === "identity" ? "Куәлік толық оқылмады" : "Чек толық оқылмады"}. Табылмады: ${missingFields.join(", ")}. Қайта оқытыңыз немесе қолмен толтырыңыз.`
+                  : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
                 : job.data?.status === "failed"
                   ? job.data.error
                   : "PDF, JPG немесе PNG · 15 МБ-қа дейін"}
@@ -138,7 +128,7 @@ export function DocumentUpload({
           {kind === "identity" ? "Жеке куәлікті жүктеу" : "Төлем чегін жүктеу"}
         </Button>
         {(job.data?.status === "failed" ||
-          (job.data?.status === "done" && missingReceiptFields.length > 0)) &&
+          (job.data?.status === "done" && missingFields.length > 0)) &&
           (job.data?.attempts ?? 0) < 3 && (
             <Button
               type="button"
