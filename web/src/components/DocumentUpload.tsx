@@ -140,8 +140,7 @@ export function DocumentUpload({
         >
           {kind === "identity" ? "Жеке куәлікті жүктеу" : "Төлем чегін жүктеу"}
         </Button>
-        {(job.data?.status === "failed" ||
-          (job.data?.status === "done" && missingFields.length > 0)) &&
+        {(job.data?.status === "failed" || job.data?.status === "done") &&
           (job.data?.attempts ?? 0) < 3 && (
             <Button
               type="button"

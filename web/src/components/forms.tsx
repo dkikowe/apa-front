@@ -146,7 +146,13 @@ export function ParticipantForm({
                       : "text"
                 }
                 max={key === "birthDate" ? today() : undefined}
-                placeholder={key === "phone" ? "+7 7__ ___ __ __" : undefined}
+                placeholder={
+                  key === "phone"
+                    ? "+7 7__ ___ __ __"
+                    : key === "middleName"
+                      ? "Әкесінің аты көрсетілмеген"
+                      : undefined
+                }
                 {...form.register(key)}
               />
             </Field>
