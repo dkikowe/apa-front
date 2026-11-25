@@ -24,6 +24,7 @@ import { api, qs, send, queryClient } from "./api";
 import {
   money,
   AGE_LABELS,
+  RECEIPT_TYPES,
   FEE,
   IDENTITY_FIELDS,
   validityPeriod,
@@ -88,6 +89,9 @@ export function MemberTable({
                 </th>
               </>
             )}
+            <th scope="col" role="columnheader">
+              Соңғы төлемнің алушысы
+            </th>
             <th scope="col" role="columnheader" className="numeric">
               Төленді
             </th>
@@ -120,7 +124,9 @@ export function MemberTable({
                       {[p.lastName, p.firstName].filter(Boolean).join(" ") ||
                         "Аты-жөні көрсетілмеген"}
                     </strong>
-                    <small>{p.middleName || "Қатысушы"}</small>
+                    <small>
+                      {p.middleName || "Әкесінің аты көрсетілмеген"}
+                    </small>
                     {missingParticipantFields(p).length > 0 && (
                       <span className="incomplete-badge">Толық емес</span>
                     )}
@@ -150,6 +156,19 @@ export function MemberTable({
                   </td>
                 </>
               )}
+              <td role="cell" data-label="Соңғы төлемнің алушысы">
+                {p.lastRecipientName ||
+                  (p.lastPaymentAt ? "Көрсетілмеген" : "Төлем жоқ")}
+                {p.lastReceiptType && (
+                  <small>
+                    {
+                      RECEIPT_TYPES[
+                        p.lastReceiptType as keyof typeof RECEIPT_TYPES
+                      ]
+                    }
+                  </small>
+                )}
+              </td>
               <td role="cell" className="numeric strong" data-label="Төленді">
                 {money(p.totalPaid)}
                 {p.lastPaymentAt && (
@@ -446,6 +465,10 @@ export function ParticipantDetail() {
           <h2>Қатысушы туралы</h2>
           <dl>
             <div>
+              <dt>Әкесінің аты</dt>
+              <dd>{p.middleName || "Әкесінің аты көрсетілмеген"}</dd>
+            </div>
+            <div>
               <dt>
                 <CalendarDays size={18} />
                 Туған күні
@@ -625,6 +648,16 @@ export function ParticipantDetail() {
                     </td>
                     <td role="cell" data-label="Алушы / чек нөмірі">
                       {pay.recipientName || "—"}
+                      {pay.receiptType && (
+                        <small>
+                          {
+                            RECEIPT_TYPES[
+                              pay.receiptType as keyof typeof RECEIPT_TYPES
+                            ]
+                          }
+                        </small>
+                      )}
+                      {pay.method && <small>{pay.method}</small>}
                       <small>
                         {pay.receiptNumber || "Нөмірі көрсетілмеген"}
                       </small>

@@ -9,11 +9,15 @@ export const REGIONS = [
   "Түпқараған ауданы",
 ] as const;
 export const AGE_LABELS = [
-  "25 жасқа дейін",
-  "25–44 жас",
-  "45–64 жас",
-  "65 жас және одан жоғары",
+  "25 жас және одан төмен",
+  "26–45 жас",
+  "46–65 жас",
+  "66 жас және одан жоғары",
 ] as const;
+export const RECEIPT_TYPES = {
+  personal: "Жеке",
+  urshyk: "ОО Ремесленников «URSHYK»",
+} as const;
 export const FEE = 648700; // tiyn, never binary floating point money
 export const STATUS_LABELS = {
   unpaid: "Төленбеген",
@@ -36,7 +40,7 @@ export function ageAt(birthDate: string, at = today()) {
 }
 export function ageGroup(age: number) {
   if (!Number.isFinite(age)) return null;
-  return age < 25 ? 0 : age < 45 ? 1 : age < 65 ? 2 : 3;
+  return age < 26 ? 0 : age < 46 ? 1 : age < 66 ? 2 : 3;
 }
 export function balance(paid: number) {
   return {
@@ -176,6 +180,7 @@ export const paymentSchema = z.object({
   amount: z.number().int().positive().max(1000000000000),
   paymentDate: dateSchema,
   paymentTime: paymentTimeSchema,
+  receiptType: z.enum(["", "personal", "urshyk"]).default(""),
   receiptText: z.string().max(20000).default(""),
   recipientName: z.string().trim().max(200).default(""),
   payerName: z.string().trim().max(200).default(""),

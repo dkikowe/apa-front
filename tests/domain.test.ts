@@ -16,11 +16,14 @@ describe("Age and money", () => {
   });
   it.each([
     [24, 0],
-    [25, 1],
+    [25, 0],
+    [26, 1],
     [44, 1],
-    [45, 2],
+    [45, 1],
+    [46, 2],
     [64, 2],
-    [65, 3],
+    [65, 2],
+    [66, 3],
     [90, 3],
   ])("groups age %i into %i", (age, group) =>
     expect(ageGroup(age)).toBe(group),

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Upload, FileCheck2, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "../api";
+import { api, send, queryClient } from "../api";
 import { DocumentButton } from "./DocumentButton";
 import { Button } from "./ui/button";
 export function DocumentUpload({
@@ -11,18 +11,20 @@ export function DocumentUpload({
   onDocument,
   onUploading,
   disabled = false,
+  initialDocumentId = "",
 }: {
   kind: "identity" | "receipt";
   onFields: (fields: any) => void;
   onDocument: (id: string) => void;
   onUploading?: (uploading: boolean) => void;
   disabled?: boolean;
+  initialDocumentId?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  const applied = useRef("");
+  const applied = useRef(initialDocumentId);
   const callbacks = useRef({ onFields, onDocument, onUploading });
   callbacks.current = { onFields, onDocument, onUploading };
-  const [id, setId] = useState(""),
+  const [id, setId] = useState(initialDocumentId),
     [uploading, setUploading] = useState(false),
     [error, setError] = useState("");
   const job = useQuery({
@@ -40,6 +42,19 @@ export function DocumentUpload({
       callbacks.current.onFields(job.data.fields || {});
     }
   }, [id, job.data]);
+  const missingReceiptFields =
+    kind === "receipt" && job.data?.status === "done"
+      ? Object.entries({
+          amount: "сома",
+          paymentDate: "күн",
+          paymentTime: "уақыт",
+          receiptNumber: "чек нөмірі",
+          recipientName: "алушы",
+          method: "төлем тәсілі",
+        })
+          .filter(([key]) => !job.data.fields?.[key])
+          .map(([, label]) => label)
+      : [];
   const processing =
     !!id && !["done", "failed"].includes(job.data?.status) && !job.isError;
   const pending = uploading || processing;
@@ -71,9 +86,8 @@ export function DocumentUpload({
               ? "Құжат оқылуда. Әзірге қолмен толтыра беруге болады."
               : job.data?.status === "done"
                 ? Object.keys(job.data.fields || {}).length
-                  ? kind === "receipt" &&
-                    (!job.data.fields.amount || !job.data.fields.paymentDate)
-                    ? "Чек толық оқылмады. Сома мен күнді тексеріп, жетіспейтінін толтырыңыз."
+                  ? missingReceiptFields.length
+                    ? `Чекте табылмады: ${missingReceiptFields.join(", ")}. Қайта оқытыңыз немесе қолмен толтырыңыз.`
                     : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
                   : "Мәліметтер табылмады. Төмендегі жолдарды қолмен толтырыңыз."
                 : job.data?.status === "failed"
@@ -123,6 +137,33 @@ export function DocumentUpload({
         >
           {kind === "identity" ? "Жеке куәлікті жүктеу" : "Төлем чегін жүктеу"}
         </Button>
+        {(job.data?.status === "failed" ||
+          (job.data?.status === "done" && missingReceiptFields.length > 0)) &&
+          (job.data?.attempts ?? 0) < 3 && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={disabled || pending}
+              onClick={async () => {
+                setUploading(true);
+                setError("");
+                try {
+                  await send(`/documents/${id}/retry`, {});
+                  queryClient.setQueryData(["ocr", id], {
+                    ...job.data,
+                    status: "queued",
+                  });
+                  applied.current = "";
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
+                  setUploading(false);
+                }
+              }}
+            >
+              Қайта оқу
+            </Button>
+          )}
         {id && (
           <div className="uploaded-document-action">
             <DocumentButton documentId={id} kind={kind} compact />

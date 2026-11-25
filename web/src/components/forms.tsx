@@ -11,6 +11,7 @@ import {
   ageAt,
   ageGroup,
   AGE_LABELS,
+  RECEIPT_TYPES,
   money,
   parseMoney,
   today,
@@ -265,6 +266,7 @@ export function PaymentForm({
     amount: payment ? String(payment.amount / 100) : "",
     paymentDate: today(),
     paymentTime: "",
+    receiptType: "",
     receiptText: "",
     recipientName: "",
     payerName: "",
@@ -296,6 +298,7 @@ export function PaymentForm({
         "payerName",
         "receiptNumber",
         "method",
+        "receiptType",
       ]) {
         const value = fields[key];
         if (!touched[key])
@@ -350,8 +353,23 @@ export function PaymentForm({
           void save();
         }}
       >
+        <Field label="Чек түрі">
+          <select
+            value={data.receiptType}
+            onChange={(e) => update("receiptType", e.target.value)}
+            disabled={busy}
+          >
+            <option value="">Чек түрін таңдаңыз</option>
+            {Object.entries(RECEIPT_TYPES).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
         <DocumentUpload
           kind="receipt"
+          initialDocumentId={payment?.receiptDocumentId || ""}
           disabled={busy || readingText}
           onUploading={setUploading}
           onDocument={(id) => update("receiptDocumentId", id)}

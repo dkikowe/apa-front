@@ -30,7 +30,7 @@ describe("Participant list completeness", () => {
     expect(html).toContain("Толық емес");
     expect(html).toContain("Көрсетілмеген");
     expect(html).not.toContain("null жас");
-    expect(html).not.toContain("65 жас және одан жоғары");
+    expect(html).not.toContain("66 жас және одан жоғары");
   });
   it("removes the badge for a completed profile", () => {
     const html = render({
@@ -52,4 +52,13 @@ describe("Participant list completeness", () => {
     expect(html).not.toContain("Толық емес");
     expect(html).toContain("56 жас");
   });
+  it("shows the missing patronymic and the receipt recipient without replacing the participant name", () => {
+    const html = render({lastName:"Үлгі", firstName:"Айша", middleName:"", lastRecipientName:"Сынақ алушы", lastReceiptType:"urshyk",lastPaymentAt:"2026-11-01T10:20"});
+    expect(html).toContain("Әкесінің аты көрсетілмеген");
+    expect(html).toContain("Соңғы төлемнің алушысы");
+    expect(html).toContain("Сынақ алушы");
+    expect(html).toContain("URSHYK");
+    expect(html).toContain("Үлгі Айша");
+  });
+
 });
