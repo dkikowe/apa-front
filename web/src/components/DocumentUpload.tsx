@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Upload, FileCheck2, LoaderCircle } from "lucide-react";
-import { toast } from "sonner";
 import { missingDocumentFields } from "../../../shared/document-recognition";
-import { api, send, queryClient } from "../api";
+import { DuplicateNotice } from "./DuplicateNotice";
+import { api, send, queryClient, ApiError } from "../api";
 import { DocumentButton } from "./DocumentButton";
 import { Button } from "./ui/button";
 export function DocumentUpload({
@@ -13,6 +13,7 @@ export function DocumentUpload({
   onUploading,
   disabled = false,
   initialDocumentId = "",
+  onBlocked,
 }: {
   kind: "identity" | "receipt";
   onFields: (fields: any) => void;
@@ -20,20 +21,22 @@ export function DocumentUpload({
   onUploading?: (uploading: boolean) => void;
   disabled?: boolean;
   initialDocumentId?: string;
+  onBlocked?: (blocked: boolean) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const applied = useRef(initialDocumentId);
-  const callbacks = useRef({ onFields, onDocument, onUploading });
-  callbacks.current = { onFields, onDocument, onUploading };
+  const callbacks = useRef({ onFields, onDocument, onUploading, onBlocked });
+  callbacks.current = { onFields, onDocument, onUploading, onBlocked };
   const [id, setId] = useState(initialDocumentId),
     [uploading, setUploading] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [uploadConflict, setUploadConflict] = useState<any>(null);
   const job = useQuery({
     queryKey: ["ocr", id],
     queryFn: () => api(`/documents/${id}`),
     enabled: !!id,
     refetchInterval: (q) =>
-      q.state.data?.status === "done" || q.state.data?.status === "failed"
+      ["done", "failed", "duplicate"].includes(q.state.data?.status)
         ? false
         : 1500,
   });
@@ -48,7 +51,17 @@ export function DocumentUpload({
       ? missingDocumentFields(kind, job.data.fields || {})
       : [];
   const processing =
-    !!id && !["done", "failed"].includes(job.data?.status) && !job.isError;
+    !!id &&
+    !["done", "failed", "duplicate"].includes(job.data?.status) &&
+    !job.isError;
+  const conflict =
+    uploadConflict ||
+    (job.data?.status === "duplicate"
+      ? job.data.duplicate || { message: job.data.error }
+      : null);
+  useEffect(() => {
+    callbacks.current.onBlocked?.(!!conflict);
+  }, [conflict]);
   const pending = uploading || processing;
   useEffect(() => {
     callbacks.current.onUploading?.(pending);
@@ -80,7 +93,8 @@ export function DocumentUpload({
                 ? missingFields.length
                   ? `${kind === "identity" ? "Куәлік толық оқылмады" : "Чек толық оқылмады"}. Табылмады: ${missingFields.join(", ")}. Қайта оқытыңыз немесе қолмен толтырыңыз.`
                   : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
-                : job.data?.status === "failed"
+                : job.data?.status === "failed" ||
+                    job.data?.status === "duplicate"
                   ? job.data.error
                   : "PDF, JPG немесе PNG · 15 МБ-қа дейін"}
         </p>
@@ -100,6 +114,7 @@ export function DocumentUpload({
             setUploading(true);
             callbacks.current.onUploading?.(true);
             setError("");
+            setUploadConflict(null);
             try {
               const body = new FormData();
               body.append("kind", kind);
@@ -107,12 +122,10 @@ export function DocumentUpload({
               const result = await api("/documents", { method: "POST", body });
               setId(result.id);
               callbacks.current.onDocument(result.id);
-              if (result.duplicate)
-                toast.warning(
-                  "Бұл файл бұрын жүктелген. Қайталап тіркемес бұрын тексеріңіз.",
-                );
             } catch (e) {
               setError((e as Error).message);
+              if (e instanceof ApiError && e.status === 409)
+                setUploadConflict(e.details);
             } finally {
               setUploading(false);
             }
@@ -154,6 +167,38 @@ export function DocumentUpload({
               Қайта оқу
             </Button>
           )}
+        {conflict && (
+          <>
+            <DuplicateNotice details={conflict} />
+            {conflict.canReuse && conflict.duplicateDocumentId && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const existingId = conflict.duplicateDocumentId;
+                  applied.current = "";
+                  setUploadConflict(null);
+                  setError("");
+                  setId(existingId);
+                  callbacks.current.onDocument(existingId);
+                  const cached = queryClient.getQueryData<any>([
+                    "ocr",
+                    existingId,
+                  ]);
+                  if (cached?.status === "done") {
+                    applied.current = existingId;
+                    callbacks.current.onFields(cached.fields || {});
+                  }
+                  void queryClient.invalidateQueries({
+                    queryKey: ["ocr", existingId],
+                  });
+                }}
+              >
+                Бұрын жүктелген құжатты пайдалану
+              </Button>
+            )}
+          </>
+        )}
         {id && (
           <div className="uploaded-document-action">
             <DocumentButton documentId={id} kind={kind} compact />
@@ -161,8 +206,7 @@ export function DocumentUpload({
         )}
         {(error || job.isError) && (
           <p role="alert" className="field-error">
-            {error || "Құжаттың күйін тексеру мүмкін болмады."} Қолмен толтыра
-            аласыз.
+            {error || "Құжаттың күйін тексеру мүмкін болмады."}
           </p>
         )}
       </div>

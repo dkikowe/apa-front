@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Check, AlertTriangle } from "lucide-react";
+import { Check } from "lucide-react";
 import {
   participantSchema,
   IDENTITY_FIELDS,
@@ -23,6 +23,7 @@ import { Button } from "./ui/button";
 import { Modal, Field } from "./common";
 import { LocationSelect } from "./LocationSelect";
 import { ReceiptTextInput } from "./ReceiptTextInput";
+import { DuplicateNotice } from "./DuplicateNotice";
 import { DocumentUpload } from "./DocumentUpload";
 export function ParticipantForm({
   participant,
@@ -34,6 +35,8 @@ export function ParticipantForm({
   onSaved?: (p: any) => void;
 }) {
   const [error, setError] = useState("");
+  const [conflict, setConflict] = useState<any>(null);
+  const [blocked, setBlocked] = useState(false);
   const [uploading, setUploading] = useState(false);
   const form = useForm<any>({
     resolver: zodResolver(participantSchema),
@@ -79,8 +82,9 @@ export function ParticipantForm({
     >
       <form
         onSubmit={form.handleSubmit(async (values) => {
-          if (uploading) return;
+          if (uploading || blocked) return;
           setError("");
+          setConflict(null);
           try {
             const p = await send(
               participant
@@ -97,11 +101,14 @@ export function ParticipantForm({
             onClose();
           } catch (e) {
             setError((e as Error).message);
+            if (e instanceof ApiError && e.status === 409)
+              setConflict(e.details);
           }
         })}
       >
         <DocumentUpload
           kind="identity"
+          onBlocked={setBlocked}
           initialDocumentId={participant?.identityDocumentId || ""}
           onUploading={setUploading}
           onDocument={(id) => {
@@ -172,8 +179,8 @@ export function ParticipantForm({
         <section aria-label="Жеке куәлік мәліметтері">
           <h3 className="form-section-label">Жеке куәлік мәліметтері</h3>
           <p className="small-note">
-            Құжатта жоқ мәліметті бос қалдырыңыз. Автоматты оқылған мәліметті
-            сақтамас бұрын тексеріңіз.
+            Қуәлік жүктелсе, қайталануын тексеру үшін ЖСН міндетті. Автоматты
+            оқылған мәліметті сақтамас бұрын тексеріңіз.
           </p>
           <div className="form-grid">
             {IDENTITY_FIELDS.filter(([key]) => !key.endsWith("Date")).map(
@@ -185,6 +192,9 @@ export function ParticipantForm({
                 >
                   <input
                     type={key.endsWith("Date") ? "date" : "text"}
+                    required={
+                      key === "iin" && !!form.watch("identityDocumentId")
+                    }
                     inputMode={key === "iin" ? "numeric" : undefined}
                     maxLength={
                       key === "iin" ? 12 : key === "issuedBy" ? 200 : undefined
@@ -240,6 +250,7 @@ export function ParticipantForm({
         >
           <textarea rows={4} maxLength={4000} {...form.register("notes")} />
         </Field>
+        {conflict && <DuplicateNotice details={conflict} />}
         {error && (
           <p className="field-error" role="alert">
             {error}
@@ -254,7 +265,9 @@ export function ParticipantForm({
           >
             Бас тарту
           </Button>
-          <Button disabled={form.formState.isSubmitting || uploading}>
+          <Button
+            disabled={form.formState.isSubmitting || uploading || blocked}
+          >
             <Check size={18} />
             {form.formState.isSubmitting ? "Сақталуда…" : "Қатысушыны сақтау"}
           </Button>
@@ -291,14 +304,16 @@ export function PaymentForm({
   });
   const [uploading, setUploading] = useState(false);
   const [readingText, setReadingText] = useState(false);
+  const [textBlocked, setTextBlocked] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [duplicate, setDuplicate] = useState(false);
+    [duplicate, setDuplicate] = useState<any>(null);
   const update = (key: string, value: any) => {
     setData((old: any) => ({ ...old, [key]: value }));
     setTouched((old) => ({ ...old, [key]: true }));
-    setDuplicate(false);
+    setDuplicate(null);
   };
   const applyReceiptFields = (fields: Record<string, string | number>) => {
     setData((old: any) => {
@@ -325,10 +340,10 @@ export function PaymentForm({
       return next;
     });
 
-    setDuplicate(false);
+    setDuplicate(null);
   };
-  const save = async (confirmDuplicate = false) => {
-    if (uploading || readingText) return;
+  const save = async () => {
+    if (uploading || readingText || blocked || textBlocked) return;
     setBusy(true);
     setError("");
     try {
@@ -340,7 +355,6 @@ export function PaymentForm({
           ...data,
           amount: parseMoney(data.amount),
           year: Number(data.year),
-          confirmDuplicate,
         },
         payment ? "PATCH" : "POST",
       );
@@ -348,7 +362,7 @@ export function PaymentForm({
       toast.success("Төлем сақталды. Қалған сома жаңартылды.");
       onClose();
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) setDuplicate(true);
+      if (e instanceof ApiError && e.status === 409) setDuplicate(e.details);
       else setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -382,6 +396,7 @@ export function PaymentForm({
         </Field>
         <DocumentUpload
           kind="receipt"
+          onBlocked={setBlocked}
           initialDocumentId={payment?.receiptDocumentId || ""}
           disabled={busy || readingText}
           onUploading={setUploading}
@@ -389,6 +404,8 @@ export function PaymentForm({
           onFields={applyReceiptFields}
         />
         <ReceiptTextInput
+          paymentId={payment?._id}
+          onBlocked={setTextBlocked}
           initialText={payment?.receiptText || ""}
           disabled={uploading || busy}
           onReading={setReadingText}
@@ -453,6 +470,7 @@ export function PaymentForm({
           </Field>
           <Field label="Чек нөмірі">
             <input
+              required={!!data.receiptDocumentId || !!data.receiptText}
               value={data.receiptNumber}
               onChange={(e) => update("receiptNumber", e.target.value)}
             />
@@ -475,23 +493,7 @@ export function PaymentForm({
           Сақтамас бұрын ақша түскенін тексеріңіз. Чектің оқылуы банктегі
           түсімді растамайды.
         </p>
-        {duplicate && (
-          <div className="duplicate-warning" role="alert">
-            <AlertTriangle size={22} />
-            <div>
-              <strong>Бұл чек бұрын тіркелген болуы мүмкін</strong>
-              <p>Қайта қоссаңыз, сома тағы бір рет есепке алынады.</p>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy || uploading || readingText}
-                onClick={() => void save(true)}
-              >
-                Тексердім, бөлек төлем ретінде қосу
-              </Button>
-            </div>
-          </div>
-        )}
+        {duplicate && <DuplicateNotice details={duplicate} />}
         {error && (
           <p role="alert" className="field-error">
             {error}
@@ -506,7 +508,16 @@ export function PaymentForm({
           >
             Бас тарту
           </Button>
-          <Button disabled={busy || duplicate || uploading || readingText}>
+          <Button
+            disabled={
+              busy ||
+              !!duplicate ||
+              uploading ||
+              readingText ||
+              blocked ||
+              textBlocked
+            }
+          >
             <Check size={18} />
             {busy ? "Сақталуда…" : "Төлемді сақтау"}
           </Button>

@@ -191,7 +191,6 @@ export const paymentSchema = z.object({
     .regex(/^[a-f\d]{24}$/i)
     .optional(),
   notes: z.string().trim().max(1000).default(""),
-  confirmDuplicate: z.boolean().default(false),
 });
 export const financeSchema = z.object({
   type: z.enum(["income", "expense"]),
