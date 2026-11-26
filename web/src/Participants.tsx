@@ -385,6 +385,10 @@ export function Participants({ membership = false }: { membership?: boolean }) {
 }
 export function ParticipantDetail() {
   const { id } = useParams();
+  return <ParticipantProfile key={id} id={id} />;
+}
+
+function ParticipantProfile({ id }: { id?: string }) {
   const [year, setYear] = useState(
     Number(new URLSearchParams(location.search).get("year")) ||
       defaultFilters.year,

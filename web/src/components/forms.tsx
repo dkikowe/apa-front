@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
@@ -19,8 +20,10 @@ import {
 import {
   identityAutofillUpdates,
   receiptAutofillUpdates,
+  receiptKey,
 } from "../../../shared/document-recognition";
 import { api, send, queryClient, ApiError } from "../api";
+import { previousAttachmentChanges } from "../document-status";
 import { Button } from "./ui/button";
 import { Modal, Field } from "./common";
 import { LocationSelect } from "./LocationSelect";
@@ -70,6 +73,9 @@ export function ParticipantForm({
   // must not silently replace the baseline of an already open form.
   const openedParticipant = useRef(participant);
   const autoFilled = useRef(new Set<string>());
+  const preservedIdentity = useRef(new Set<string>());
+  const manuallyEdited = (key: string) =>
+    form.getFieldState(key).isDirty || preservedIdentity.current.has(key);
   const applyIdentityFields = (
     fields: Record<string, unknown>,
     fillBlanksOnly = false,
@@ -77,7 +83,7 @@ export function ParticipantForm({
     const updates = identityAutofillUpdates(
       fields,
       autoFilled.current,
-      (key) => form.getFieldState(key).isDirty,
+      manuallyEdited,
       fillBlanksOnly ? form.getValues() : undefined,
     );
     for (const [key, value] of Object.entries(updates)) {
@@ -138,8 +144,21 @@ export function ParticipantForm({
           onBlocked={setBlocked}
           initialDocumentId={participant?.identityDocumentId || ""}
           onUploading={setUploading}
-          onDocument={(id) => {
-            applyIdentityFields({});
+          onDocument={(id, previous) => {
+            if (previous) {
+              const changes = previousAttachmentChanges(
+                "identity",
+                previous,
+                openedParticipant.current?.identityDocumentId,
+                form.getValues(),
+                manuallyEdited,
+              );
+              for (const key of changes.preserve)
+                preservedIdentity.current.add(key);
+              for (const key of Object.keys(changes.clear))
+                form.setValue(key, "", { shouldValidate: true });
+              autoFilled.current.clear();
+            }
             form.setValue("identityDocumentId", id);
           }}
           onFields={applyIdentityFields}
@@ -339,6 +358,67 @@ export function PaymentForm({
   const [textBlocked, setTextBlocked] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const touched = useRef(new Set<string>());
+  const [fileNumber, setFileNumber] = useState("");
+  const acceptedText = useRef({
+    number: "",
+    values: {} as Record<string, string | number>,
+  });
+  const savedTextOnly =
+    !!payment?.receiptText &&
+    !payment.receiptDocumentId &&
+    data.receiptText === payment.receiptText &&
+    !data.receiptDocumentId;
+  const savedTextEvidence = useQuery({
+    queryKey: ["saved-receipt-text", payment?._id, payment?.updatedAt],
+    enabled: savedTextOnly,
+    queryFn: ({ signal }) =>
+      api("/receipts/recognize-text", {
+        method: "POST",
+        signal,
+        body: JSON.stringify({
+          text: payment.receiptText,
+          paymentId: payment._id,
+        }),
+      }),
+  });
+  const mismatchMessage =
+    "Файлдағы, мәтіндегі және төлемдегі чек нөмірі бірдей болуы керек. Мәтінді өшіріңіз немесе осы чектің мәтінін таңдаңыз.";
+  const unchangedSources =
+    data.receiptDocumentId === payment?.receiptDocumentId &&
+    data.receiptText === payment?.receiptText &&
+    receiptKey(data.receiptNumber) === receiptKey(payment?.receiptNumber);
+  const sourceMismatch = !!(
+    data.receiptDocumentId &&
+    data.receiptText &&
+    !unchangedSources &&
+    (!fileNumber ||
+      fileNumber !== acceptedText.current.number ||
+      fileNumber !== receiptKey(data.receiptNumber))
+  );
+  const clearRecognizedText = (preserveSavedCorrections = false) => {
+    const clear: Record<string, string> = {};
+    if (
+      savedTextOnly &&
+      !acceptedText.current.number &&
+      savedTextEvidence.data?.fields
+    ) {
+      const changes = previousAttachmentChanges(
+        "receipt",
+        { id: payment._id, fields: savedTextEvidence.data.fields },
+        payment._id,
+        data,
+        (key) => touched.current.has(key),
+      );
+      Object.assign(clear, changes.clear);
+      if (preserveSavedCorrections)
+        for (const key of changes.preserve) touched.current.add(key);
+    }
+    for (const [key, value] of Object.entries(acceptedText.current.values)) {
+      if (data[key] === value && !touched.current.has(key)) clear[key] = "";
+    }
+    acceptedText.current = { number: "", values: {} };
+    return clear;
+  };
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [duplicate, setDuplicate] = useState<any>(null);
@@ -358,7 +438,8 @@ export function PaymentForm({
     setDuplicate(null);
   };
   const save = async () => {
-    if (uploading || readingText || blocked || textBlocked) return;
+    if (uploading || readingText || blocked || textBlocked || sourceMismatch)
+      return;
     setBusy(true);
     setError("");
     try {
@@ -413,20 +494,74 @@ export function PaymentForm({
           kind="receipt"
           onBlocked={setBlocked}
           initialDocumentId={payment?.receiptDocumentId || ""}
-          disabled={busy || readingText}
+          disabled={busy || readingText || savedTextEvidence.isLoading}
+          replacingRecognizedText={!!data.receiptText}
           onUploading={setUploading}
-          onDocument={(id) => update("receiptDocumentId", id)}
-          onFields={applyReceiptFields}
+          onDocument={(id, previous) => {
+            if (id === data.receiptDocumentId) return;
+            const fromText = clearRecognizedText(true);
+            setFileNumber("");
+            setTextBlocked(false);
+            const changes =
+              previous &&
+              previousAttachmentChanges(
+                "receipt",
+                previous,
+                payment?.receiptDocumentId,
+                { ...data, ...fromText },
+                (key) => touched.current.has(key),
+              );
+            for (const key of changes?.preserve || []) touched.current.add(key);
+            setData((old: any) => ({
+              ...old,
+              ...fromText,
+              ...changes?.clear,
+              receiptText: "",
+              receiptDocumentId: id,
+            }));
+            setDuplicate(null);
+          }}
+          onFields={(fields, fillBlanksOnly) => {
+            setFileNumber(receiptKey(fields.receiptNumber));
+            applyReceiptFields(fields, fillBlanksOnly);
+          }}
         />
         <ReceiptTextInput
+          key={data.receiptDocumentId || "no-file"}
           paymentId={payment?._id}
           onBlocked={setTextBlocked}
-          initialText={payment?.receiptText || ""}
+          initialText={data.receiptText}
           disabled={uploading || busy}
           onReading={setReadingText}
+          onClear={() => {
+            const clear = clearRecognizedText();
+            setData((old: any) => ({ ...old, ...clear, receiptText: "" }));
+            setDuplicate(null);
+          }}
           onFields={(fields, text) => {
-            applyReceiptFields(fields);
-            setData((old: any) => ({ ...old, receiptText: text }));
+            const number = receiptKey(fields.receiptNumber);
+            if (
+              data.receiptDocumentId &&
+              (!fileNumber ||
+                fileNumber !== number ||
+                fileNumber !== receiptKey(data.receiptNumber))
+            )
+              throw new Error(mismatchMessage);
+            const clear = clearRecognizedText();
+            const values = receiptAutofillUpdates(
+              fields,
+              { ...data, ...clear },
+              touched.current,
+              !!data.receiptDocumentId,
+            );
+            acceptedText.current = { number, values };
+            setData((old: any) => ({
+              ...old,
+              ...clear,
+              ...values,
+              receiptText: text,
+            }));
+            setDuplicate(null);
           }}
         />
         <div className="form-grid">
@@ -505,6 +640,11 @@ export function PaymentForm({
           түсімді растамайды.
         </p>
         {duplicate && <DuplicateNotice details={duplicate} />}
+        {sourceMismatch && (
+          <p className="field-error" role="alert">
+            {mismatchMessage}
+          </p>
+        )}
         {error && (
           <p role="alert" className="field-error">
             {error}
@@ -526,7 +666,8 @@ export function PaymentForm({
               uploading ||
               readingText ||
               blocked ||
-              textBlocked
+              textBlocked ||
+              sourceMismatch
             }
           >
             <Check size={18} />

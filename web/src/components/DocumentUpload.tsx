@@ -6,7 +6,9 @@ import { DuplicateNotice } from "./DuplicateNotice";
 import { api, send, queryClient, ApiError } from "../api";
 import {
   documentPollingInterval,
+  failedAttachmentBlocksSave,
   replaceDocumentStatus,
+  type PreviousAttachment,
 } from "../document-status";
 import { DocumentButton } from "./DocumentButton";
 import { Button } from "./ui/button";
@@ -16,14 +18,16 @@ export function DocumentUpload({
   onDocument,
   onUploading,
   disabled = false,
+  replacingRecognizedText = false,
   initialDocumentId = "",
   onBlocked,
 }: {
   kind: "identity" | "receipt";
   onFields: (fields: any, fillBlanksOnly?: boolean) => void;
-  onDocument: (id: string) => void;
+  onDocument: (id: string, previous?: PreviousAttachment) => void;
   onUploading?: (uploading: boolean) => void;
   disabled?: boolean;
+  replacingRecognizedText?: boolean;
   initialDocumentId?: string;
   onBlocked?: (blocked: boolean) => void;
 }) {
@@ -38,12 +42,15 @@ export function DocumentUpload({
   const originalAttachment = useRef(initialDocumentId);
   const refreshed = useRef("");
   const applied = useRef("");
+  const lastApplied = useRef<PreviousAttachment | undefined>(undefined);
   const callbacks = useRef({ onFields, onDocument, onUploading, onBlocked });
   callbacks.current = { onFields, onDocument, onUploading, onBlocked };
   const [id, setId] = useState(initialDocumentId),
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(""),
+    [rejectedReplacement, setRejectedReplacement] = useState(false),
     [uploadConflict, setUploadConflict] = useState<any>(null);
+  const replacedRecognizedDocument = useRef(false);
   const existingAttachment = !!id && id === originalAttachment.current;
   const jobKey = existingAttachment ? ["ocr", id, "attached"] : ["ocr", id];
   const job = useQuery({
@@ -80,6 +87,7 @@ export function DocumentUpload({
     const stamp = JSON.stringify([id, fields]);
     if (applied.current === stamp) return;
     applied.current = stamp;
+    lastApplied.current = { id, fields };
     callbacks.current.onFields(fields, id === originalAttachment.current);
   }, [id, job.data, checkingAttachment, job.isError, uploading]);
   const missingFields =
@@ -96,9 +104,33 @@ export function DocumentUpload({
     (job.data?.status === "duplicate"
       ? job.data.duplicate || { message: job.data.error }
       : null);
+  const blocked =
+    !!conflict ||
+    job.isError ||
+    rejectedReplacement ||
+    failedAttachmentBlocksSave(
+      job.data,
+      id === initialDocumentId,
+      replacedRecognizedDocument.current,
+    );
   useEffect(() => {
-    callbacks.current.onBlocked?.(!!conflict || job.isError);
-  }, [conflict, job.isError]);
+    callbacks.current.onBlocked?.(blocked);
+  }, [blocked]);
+  function selectDocument(nextId: string) {
+    const replacing = !!id && nextId !== id;
+    if (nextId !== id && replacingRecognizedText)
+      replacedRecognizedDocument.current = true;
+    let previous: PreviousAttachment | undefined;
+    if (replacing) {
+      const recognized = lastApplied.current?.id === id;
+      if (id === initialDocumentId || recognized)
+        replacedRecognizedDocument.current = true;
+      previous = recognized ? lastApplied.current : { id, fields: {} };
+      lastApplied.current = undefined;
+    }
+    setId(nextId);
+    callbacks.current.onDocument(nextId, previous);
+  }
   const pending = uploading || processing;
   useEffect(() => {
     callbacks.current.onUploading?.(pending);
@@ -148,11 +180,13 @@ export function DocumentUpload({
             e.target.value = "";
             if (file.size > 15 * 1024 * 1024) {
               setError("Файл 15 МБ-тан аспауы керек.");
+              setRejectedReplacement(!!id);
               return;
             }
             setUploading(true);
             callbacks.current.onUploading?.(true);
             setError("");
+            setRejectedReplacement(false);
             setUploadConflict(null);
             try {
               const body = new FormData();
@@ -169,11 +203,11 @@ export function DocumentUpload({
                 _id: result.id,
               });
               if (!active.current) return;
-              setId(result.id);
-              callbacks.current.onDocument(result.id);
+              selectDocument(result.id);
             } catch (e) {
               if (!active.current) return;
               setError((e as Error).message);
+              setRejectedReplacement(!!id);
               if (e instanceof ApiError && e.status === 409)
                 setUploadConflict(e.details);
             } finally {
@@ -228,9 +262,9 @@ export function DocumentUpload({
                   originalAttachment.current = "";
                   applied.current = "";
                   setUploadConflict(null);
+                  setRejectedReplacement(false);
                   setError("");
-                  setId(existingId);
-                  callbacks.current.onDocument(existingId);
+                  selectDocument(existingId);
                   void queryClient.invalidateQueries({
                     queryKey: ["ocr", existingId],
                   });

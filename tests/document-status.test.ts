@@ -3,8 +3,18 @@ import { expect, it } from "vitest";
 import { ApiError } from "../web/src/api";
 import {
   documentPollingInterval,
+  failedAttachmentBlocksSave,
   replaceDocumentStatus,
 } from "../web/src/document-status";
+
+it("allows manual entry after an ordinary first OCR failure and refuses a replacement or a confirmed type mismatch", () => {
+  const failed = { status: "failed" };
+  const wrongType = { ...failed, wrongDocumentKind: true };
+  expect(failedAttachmentBlocksSave(failed, false, false)).toBe(false);
+  expect(failedAttachmentBlocksSave(failed, false, true)).toBe(true);
+  expect(failedAttachmentBlocksSave(wrongType, false, false)).toBe(true);
+  expect(failedAttachmentBlocksSave(wrongType, true, false)).toBe(false);
+});
 
 it.each([
   ["ocr", "doc"],

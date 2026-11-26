@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
-import { send, ApiError } from "../api";
+import { send } from "../api";
 import { Field } from "./common";
 import { Button } from "./ui/button";
 export function ReceiptTextInput({
   initialText = "",
   paymentId,
   onBlocked,
+  onClear,
   disabled,
   onReading,
   onFields,
@@ -13,15 +14,22 @@ export function ReceiptTextInput({
   initialText?: string;
   paymentId?: string;
   onBlocked: (blocked: boolean) => void;
+  onClear: () => void;
   disabled: boolean;
   onReading: (value: boolean) => void;
   onFields: (fields: Record<string, string | number>, text: string) => void;
 }) {
-  const callbacks = useRef({ onFields, onReading, onBlocked });
-  callbacks.current = { onFields, onReading, onBlocked };
+  const callbacks = useRef({ onFields, onReading, onBlocked, onClear });
+  callbacks.current = { onFields, onReading, onBlocked, onClear };
   const [text, setText] = useState(initialText),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
+  function changeText(value: string) {
+    setText(value);
+    setMessage("");
+    callbacks.current.onBlocked(!!value.trim() && value !== initialText);
+    if (!value.trim()) callbacks.current.onClear();
+  }
   return (
     <details className="optional-fields" open={initialText ? true : undefined}>
       <summary>Чек WhatsApp-та мәтінмен келді ме?</summary>
@@ -32,11 +40,7 @@ export function ReceiptTextInput({
           value={text}
           disabled={busy || disabled}
           placeholder="WhatsApp-тағы чектің мәтінін көшіріп, осында қойыңыз."
-          onChange={(e) => {
-            setText(e.target.value);
-            if (!e.target.value.trim()) callbacks.current.onBlocked(false);
-            setMessage("");
-          }}
+          onChange={(e) => changeText(e.target.value)}
         />
       </Field>
       <Button
@@ -52,16 +56,15 @@ export function ReceiptTextInput({
               text,
               paymentId,
             });
-            callbacks.current.onBlocked(false);
             callbacks.current.onFields(fields, text);
+            callbacks.current.onBlocked(false);
             setMessage(
               fields.amount && fields.paymentDate
                 ? "Мәтін оқылды. Төмендегі сома, күн және уақытты тексеріңіз."
                 : "Чектің толық мәтінін көшіріп, қайта оқытыңыз.",
             );
           } catch (e) {
-            if (e instanceof ApiError && e.status === 409)
-              callbacks.current.onBlocked(true);
+            callbacks.current.onBlocked(true);
             setMessage((e as Error).message);
           } finally {
             setBusy(false);
@@ -71,9 +74,21 @@ export function ReceiptTextInput({
       >
         {busy ? "Оқылуда…" : "Мәтінді оқу"}
       </Button>
+      {text && (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={disabled || busy}
+          onClick={() => changeText("")}
+        >
+          Мәтінді өшіру
+        </Button>
+      )}
       <p className="small-note" role="status">
         {message ||
-          "Оқылған мәліметтерді тексеріп, «Төлемді сақтау» батырмасын басыңыз."}
+          (text.trim() && text !== initialText
+            ? "«Мәтінді оқу» батырмасын басыңыз."
+            : "Оқылған мәліметтерді тексеріп, «Төлемді сақтау» батырмасын басыңыз.")}
       </p>
     </details>
   );
