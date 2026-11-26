@@ -1,7 +1,7 @@
 import { IDENTITY_FIELDS } from "./domain.js";
 
-export const RECEIPT_RECOGNITION_VERSION = 4;
-export const IDENTITY_RECOGNITION_VERSION = 3;
+export const RECEIPT_RECOGNITION_VERSION = 5;
+export const IDENTITY_RECOGNITION_VERSION = 4;
 
 export const IDENTITY_OCR_FIELDS = [
   "lastName",

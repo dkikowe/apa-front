@@ -4,6 +4,10 @@ import { Upload, FileCheck2, LoaderCircle } from "lucide-react";
 import { missingDocumentFields } from "../../../shared/document-recognition";
 import { DuplicateNotice } from "./DuplicateNotice";
 import { api, send, queryClient, ApiError } from "../api";
+import {
+  documentPollingInterval,
+  replaceDocumentStatus,
+} from "../document-status";
 import { DocumentButton } from "./DocumentButton";
 import { Button } from "./ui/button";
 export function DocumentUpload({
@@ -45,33 +49,39 @@ export function DocumentUpload({
   const job = useQuery({
     queryKey: jobKey,
     refetchOnMount: existingAttachment ? "always" : true,
-    queryFn: async () => {
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    queryFn: async ({ signal }) => {
       if (existingAttachment && refreshed.current !== id) {
-        const latest = await send(`/documents/${id}/refresh`, {});
-        refreshed.current = id;
+        const latest = await api(`/documents/${id}/refresh`, {
+          method: "POST",
+          body: "{}",
+          signal,
+        });
+        if (!signal.aborted) refreshed.current = id;
         return latest;
       }
-      return api(`/documents/${id}`);
+      return api(`/documents/${id}`, { signal });
     },
     enabled: !!id,
     refetchInterval: (q) =>
-      ["done", "failed", "duplicate"].includes(q.state.data?.status)
-        ? false
-        : 1500,
+      documentPollingInterval(q.state.data, q.state.error),
   });
   const checkingAttachment = existingAttachment && !job.isFetchedAfterMount;
   useEffect(() => {
     if (
-      !checkingAttachment &&
-      !job.isError &&
-      job.data?.status === "done" &&
-      applied.current !== id
-    ) {
-      applied.current = id;
-      const existing = id === originalAttachment.current;
-      callbacks.current.onFields(job.data.fields || {}, existing);
-    }
-  }, [id, job.data, checkingAttachment, job.isError]);
+      uploading ||
+      checkingAttachment ||
+      job.isError ||
+      job.data?.status !== "done"
+    )
+      return;
+    const fields = job.data.fields || {};
+    const stamp = JSON.stringify([id, fields]);
+    if (applied.current === stamp) return;
+    applied.current = stamp;
+    callbacks.current.onFields(fields, id === originalAttachment.current);
+  }, [id, job.data, checkingAttachment, job.isError, uploading]);
   const missingFields =
     job.data?.status === "done"
       ? missingDocumentFields(kind, job.data.fields || {})
@@ -87,8 +97,8 @@ export function DocumentUpload({
       ? job.data.duplicate || { message: job.data.error }
       : null);
   useEffect(() => {
-    callbacks.current.onBlocked?.(!!conflict);
-  }, [conflict]);
+    callbacks.current.onBlocked?.(!!conflict || job.isError);
+  }, [conflict, job.isError]);
   const pending = uploading || processing;
   useEffect(() => {
     callbacks.current.onUploading?.(pending);
@@ -154,16 +164,13 @@ export function DocumentUpload({
               // duplicate/queued results and apply the returned fields again.
               originalAttachment.current = "";
               applied.current = "";
-              queryClient.setQueryData(["ocr", result.id], {
+              await replaceDocumentStatus(queryClient, ["ocr", result.id], {
                 ...result,
                 _id: result.id,
               });
+              if (!active.current) return;
               setId(result.id);
               callbacks.current.onDocument(result.id);
-              if (result.status === "done") {
-                applied.current = result.id;
-                callbacks.current.onFields(result.fields || {});
-              }
             } catch (e) {
               if (!active.current) return;
               setError((e as Error).message);
@@ -194,7 +201,7 @@ export function DocumentUpload({
                 setError("");
                 try {
                   await send(`/documents/${id}/retry`, {});
-                  queryClient.setQueryData(jobKey, {
+                  await replaceDocumentStatus(queryClient, jobKey, {
                     ...job.data,
                     status: "queued",
                   });
@@ -224,14 +231,6 @@ export function DocumentUpload({
                   setError("");
                   setId(existingId);
                   callbacks.current.onDocument(existingId);
-                  const cached = queryClient.getQueryData<any>([
-                    "ocr",
-                    existingId,
-                  ]);
-                  if (cached?.status === "done") {
-                    applied.current = existingId;
-                    callbacks.current.onFields(cached.fields || {});
-                  }
                   void queryClient.invalidateQueries({
                     queryKey: ["ocr", existingId],
                   });
