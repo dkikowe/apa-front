@@ -347,6 +347,7 @@ export function Dashboard() {
                     data={data.finance.months.map((x: any) => ({
                       ...x,
                       membership: x.membership / 100,
+                      additional: (x.additional || 0) / 100,
                       income: x.income / 100,
                       expense: x.expense / 100,
                     }))}
@@ -371,6 +372,11 @@ export function Dashboard() {
                       dataKey="membership"
                       fill="#1c7358"
                       radius={[3, 3, 0, 0]}
+                    />
+                    <Bar
+                      name="Қосымша төлемдер"
+                      dataKey="additional"
+                      fill="#527ca3"
                     />
                     <Bar name="Өзге кіріс" dataKey="income" fill="#93b9aa" />
                     <Bar

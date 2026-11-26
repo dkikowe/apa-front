@@ -175,7 +175,23 @@ export const participantSchema = z
     message: "Жарамдылық мерзімінің аяқталуы басталуынан бұрын болмауы керек",
     path: ["expiryDate"],
   });
+export const MEMBERSHIP_PAYMENT_LABEL = "Мүшелік жарна";
+export function paymentCategoryLabel(payment: {
+  paymentKind?: string | null;
+  paymentCategoryName?: string | null;
+}) {
+  return payment.paymentKind === "additional"
+    ? payment.paymentCategoryName || "Қосымша төлем"
+    : MEMBERSHIP_PAYMENT_LABEL;
+}
+export const paymentCategorySchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  amount: z.number().int().positive().max(1000000000000),
+});
 export const paymentSchema = z.object({
+  paymentCategoryId: z
+    .union([z.literal(""), z.string().regex(/^[a-f\d]{24}$/i)])
+    .optional(),
   year: z.number().int().min(2000).max(2100),
   amount: z.number().int().positive().max(1000000000000),
   paymentDate: dateSchema,

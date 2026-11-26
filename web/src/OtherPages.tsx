@@ -65,6 +65,7 @@ export function FinancePage() {
           <div className="stats-grid finance-stats">
             {[
               { label: "Мүшелік жарналар", value: data.membership },
+              { label: "Қосымша төлемдер", value: data.additional || 0 },
               { label: "Өзге кірістер", value: data.income },
               { label: "Жалпы кіріс", value: data.totalIncome },
               { label: "Жалпы шығыс", value: data.expense },
@@ -89,7 +90,7 @@ export function FinancePage() {
         <div className="panel-heading">
           <div>
             <h2>Өзге кірістер мен шығыстар</h2>
-            <p>Мүшелік жарналар бөлек есептеледі</p>
+            <p>Қатысушылардың төлемдері бөлек есептеледі</p>
           </div>
           <ExportButton type="financial" filters={{ year }} />
         </div>
@@ -246,14 +247,14 @@ export function Reports() {
           },
           {
             type: "payments",
-            title: "Мүшелік жарна төлемдері",
+            title: "Қатысушылардың төлемдері",
             text: "Таңдалған жылға тіркелген төлемдер мен чектер.",
             filtered: true,
           },
           {
             type: "income",
             title: "Барлық кірістер",
-            text: "Мүшелік жарналар мен өзге түсімдер. Тек жыл бойынша.",
+            text: "Мүшелік жарна, қосымша төлемдер және өзге түсімдер. Тек жыл бойынша.",
             filtered: false,
           },
           {

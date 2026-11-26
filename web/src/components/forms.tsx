@@ -12,10 +12,8 @@ import {
   ageGroup,
   AGE_LABELS,
   RECEIPT_TYPES,
-  money,
   parseMoney,
   today,
-  FEE,
 } from "../../../shared/domain";
 import { identityAutofillUpdates } from "../../../shared/document-recognition";
 import { api, send, queryClient, ApiError } from "../api";
@@ -24,6 +22,7 @@ import { Modal, Field } from "./common";
 import { LocationSelect } from "./LocationSelect";
 import { ReceiptTextInput } from "./ReceiptTextInput";
 import { DuplicateNotice } from "./DuplicateNotice";
+import { PaymentCategorySelect } from "./PaymentCategorySelect";
 import { DocumentUpload } from "./DocumentUpload";
 export function ParticipantForm({
   participant,
@@ -295,6 +294,7 @@ export function PaymentForm({
 }) {
   const [data, setData] = useState<any>({
     year,
+    paymentCategoryId: "",
     amount: payment ? String(payment.amount / 100) : "",
     paymentDate: today(),
     paymentTime: "",
@@ -310,6 +310,8 @@ export function PaymentForm({
   });
   const [uploading, setUploading] = useState(false);
   const [readingText, setReadingText] = useState(false);
+  const [categoryEditing, setCategoryEditing] = useState(false);
+  const [categoryBusy, setCategoryBusy] = useState(false);
   const [textBlocked, setTextBlocked] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -349,7 +351,15 @@ export function PaymentForm({
     setDuplicate(null);
   };
   const save = async () => {
-    if (uploading || readingText || blocked || textBlocked) return;
+    if (
+      uploading ||
+      readingText ||
+      blocked ||
+      textBlocked ||
+      categoryEditing ||
+      categoryBusy
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -365,7 +375,7 @@ export function PaymentForm({
         payment ? "PATCH" : "POST",
       );
       await queryClient.invalidateQueries();
-      toast.success("Төлем сақталды. Қалған сома жаңартылды.");
+      toast.success("Төлем сақталды.");
       onClose();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) setDuplicate(e.details);
@@ -377,8 +387,10 @@ export function PaymentForm({
   return (
     <Modal
       title={payment ? "Төлемді түзету" : "Төлем қосу"}
-      description={`${participant.lastName} ${participant.firstName} · жылдық жарна ${money(FEE)}`}
-      onClose={() => !busy && !uploading && !readingText && onClose()}
+      description={`${participant.lastName} ${participant.firstName} · төлем түрін таңдап, соманы енгізіңіз.`}
+      onClose={() =>
+        !busy && !uploading && !readingText && !categoryBusy && onClose()
+      }
     >
       <form
         onSubmit={(e) => {
@@ -386,6 +398,22 @@ export function PaymentForm({
           void save();
         }}
       >
+        <PaymentCategorySelect
+          value={data.paymentCategoryId || ""}
+          currentName={data.paymentCategoryName}
+          disabled={busy || uploading || readingText || categoryBusy}
+          onEditing={setCategoryEditing}
+          onBusy={setCategoryBusy}
+          onChange={(id, amount) => {
+            setData((old: any) => ({
+              ...old,
+              paymentCategoryId: id,
+              amount: amount === undefined ? "" : String(amount / 100),
+            }));
+            setTouched((old) => ({ ...old, amount: false }));
+            setDuplicate(null);
+          }}
+        />
         <Field label="Чек түрі">
           <select
             value={data.receiptType}
@@ -509,7 +537,7 @@ export function PaymentForm({
           <Button
             type="button"
             variant="outline"
-            disabled={busy || uploading || readingText}
+            disabled={busy || uploading || readingText || categoryBusy}
             onClick={onClose}
           >
             Бас тарту
@@ -521,7 +549,9 @@ export function PaymentForm({
               uploading ||
               readingText ||
               blocked ||
-              textBlocked
+              textBlocked ||
+              categoryEditing ||
+              categoryBusy
             }
           >
             <Check size={18} />
@@ -554,7 +584,7 @@ export function FinanceForm({
   return (
     <Modal
       title={transaction ? "Жазбаны өзгерту" : "Кіріс немесе шығыс қосу"}
-      description="Мүшелік жарналарды «Төлем қосу» арқылы енгізіңіз."
+      description="Қатысушылардың мүшелік жарнасы мен қосымша төлемдерін «Төлем қосу» арқылы енгізіңіз."
       onClose={() => !busy && onClose()}
     >
       <form

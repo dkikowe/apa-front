@@ -23,6 +23,7 @@ import { regionLabel, locationLabel } from "../../shared/locations";
 import { api, qs, send, queryClient } from "./api";
 import {
   money,
+  paymentCategoryLabel,
   AGE_LABELS,
   RECEIPT_TYPES,
   FEE,
@@ -390,6 +391,7 @@ export function ParticipantDetail() {
     [payment, setPayment] = useState<any>(null),
     [confirm, setConfirm] = useState<any>(null);
   const [receiptText, setReceiptText] = useState("");
+  const [paymentCategory, setPaymentCategory] = useState("all");
   const [paymentOrder, setPaymentOrder] = useState<"asc" | "desc">("desc");
   const query = useQuery({
     queryKey: ["participant", id, year],
@@ -399,7 +401,12 @@ export function ParticipantDetail() {
   if (query.isError) return <ErrorBox error={query.error} />;
   const p = query.data;
   const payments = sortPayments<any>(
-    p.payments.filter((x: any) => x.year === year),
+    p.payments.filter(
+      (x: any) =>
+        x.year === year &&
+        (paymentCategory === "all" ||
+          (x.paymentCategoryId || "membership") === paymentCategory),
+    ),
     paymentOrder,
   );
   return (
@@ -585,8 +592,35 @@ export function ParticipantDetail() {
         <div className="panel-heading">
           <div>
             <h2>Төлем тарихы</h2>
-            <p>{year} жылғы жарнаға тіркелген төлемдер</p>
+            <p>{year} жылғы мүшелік жарна және қосымша төлемдер</p>
           </div>
+          <label className="sort-field">
+            Төлем түрі
+            <select
+              value={paymentCategory}
+              onChange={(e) => setPaymentCategory(e.target.value)}
+            >
+              <option value="all">Барлық төлемдер</option>
+              <option value="membership">Мүшелік жарна</option>
+              {[
+                ...new Map<string, string>(
+                  p.payments
+                    .filter((x: any) => x.paymentCategoryId)
+                    .map(
+                      (x: any) =>
+                        [
+                          String(x.paymentCategoryId),
+                          paymentCategoryLabel(x),
+                        ] as [string, string],
+                    ),
+                ),
+              ].map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="sort-field">
             Төлем күні мен уақыты
             <select
@@ -641,6 +675,7 @@ export function ParticipantDetail() {
                     </td>
                     <td role="cell" className="strong" data-label="Сома">
                       {money(pay.amount)}
+                      <small>{paymentCategoryLabel(pay)}</small>
                       {pay.voidedAt && <small>Күші жойылған</small>}
                     </td>
                     <td role="cell" data-label="Төлеген адам">
