@@ -106,10 +106,65 @@ export const IDENTITY_FIELDS = [
   ["issueDate", "Жарамдылық мерзімінің басталуы"],
   ["expiryDate", "Жарамдылық мерзімінің аяқталуы"],
 ] as const;
+// Match printed column headings even when OCR drops separators or substitutes
+// Russian/Latin lookalikes for Kazakh letters. Issuer names are open-ended.
+const validityHeading =
+  /жарамд[ыи]л[ыи]к|колдан[ыи]лумер[з3]|мер[з3][иi1]м[иi1]|срокде[ий]ств|датавыдачи|бер[иi]лгенкун[иi]|dateof(?:issue|expir)|valid(?:thru|until|ityperiod)/u;
+export function validIdentityIssuer(value: unknown): boolean {
+  if (typeof value !== "string" || !/\p{L}/u.test(value)) return false;
+  const compact = value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/қ/g, "к")
+    .replace(/[үұ]/g, "у")
+    .replace(/і/g, "и")
+    .replace(/[^\p{L}\d]/gu, "");
+  return (
+    !validityHeading.test(compact) &&
+    !/^(?:кемвыдано?|органвыдачи|кимберди|бергенорганы?|issuedby|authority)$/u.test(
+      compact,
+    ) &&
+    // An OCR digit may be a letter, e.g. "26.О5.2035". Dates may also
+    // include г./ж. or the words "с ... по ...".
+    !(
+      /^\s*(?:с\s+|от\s+)?[\dоoiіlзгж.\s/–—-]+(?:по\s+[\dоoiіlзгж.\s/–—-]+)?$/iu.test(
+        value,
+      ) && /\d/u.test(value)
+    )
+  );
+}
+
+export function invalidIdentityFields(
+  fields: Record<string, unknown>,
+): Set<string> {
+  const invalid = new Set<string>();
+  if (fields.issuedBy && !validIdentityIssuer(fields.issuedBy))
+    invalid.add("issuedBy");
+  for (const key of ["issueDate", "expiryDate"] as const)
+    if (fields[key] && !dateSchema.safeParse(fields[key]).success)
+      invalid.add(key);
+  const { issueDate, expiryDate } = fields;
+  if (
+    !invalid.has("issueDate") &&
+    !invalid.has("expiryDate") &&
+    typeof issueDate === "string" &&
+    typeof expiryDate === "string" &&
+    issueDate &&
+    expiryDate &&
+    issueDate > expiryDate
+  ) {
+    invalid.add("issueDate");
+    invalid.add("expiryDate");
+  }
+  return invalid;
+}
 export function validityPeriod(start?: string, end?: string) {
-  const date = (value?: string) =>
-    value ? value.split("-").reverse().join(".") : "Көрсетілмеген";
-  return `${date(start)} — ${date(end)}`;
+  const invalid = invalidIdentityFields({ issueDate: start, expiryDate: end });
+  const date = (key: string, value?: string) =>
+    value && !invalid.has(key)
+      ? value.split("-").reverse().join(".")
+      : "Көрсетілмеген";
+  return `${date("issueDate", start)} — ${date("expiryDate", end)}`;
 }
 export const paymentTimeSchema = z
   .string()
@@ -153,7 +208,15 @@ export const participantSchema = z
       .max(30)
       .regex(/^[A-Za-zА-Яа-я0-9 -]*$/, "Куәлік нөмірін тексеріңіз")
       .default(""),
-    issuedBy: z.string().trim().max(200).default(""),
+    issuedBy: z
+      .string()
+      .trim()
+      .max(200)
+      .refine(
+        (v) => !v || validIdentityIssuer(v),
+        "Куәлікті берген органның атауын тексеріңіз",
+      )
+      .default(""),
     issueDate: optionalDate,
     expiryDate: optionalDate,
     identityDocumentId: z
@@ -228,7 +291,8 @@ export const PROFILE_FIELDS = [
   ...IDENTITY_FIELDS,
 ] as const;
 export function missingParticipantFields(p: Partial<ParticipantInput>) {
-  return PROFILE_FIELDS.filter(([key]) => !p[key]?.trim()).map(
-    ([, label]) => label,
-  );
+  const invalid = invalidIdentityFields(p);
+  return PROFILE_FIELDS.filter(
+    ([key]) => !p[key]?.trim() || invalid.has(key),
+  ).map(([, label]) => label);
 }

@@ -1,7 +1,7 @@
-import { IDENTITY_FIELDS } from "./domain.js";
+import { IDENTITY_FIELDS, invalidIdentityFields } from "./domain.js";
 
 export const RECEIPT_RECOGNITION_VERSION = 6;
-export const IDENTITY_RECOGNITION_VERSION = 5;
+export const IDENTITY_RECOGNITION_VERSION = 6;
 
 export const IDENTITY_OCR_FIELDS = [
   "lastName",
@@ -18,12 +18,24 @@ export function identityAutofillUpdates(
   fields: Record<string, unknown>,
   previous: ReadonlySet<string>,
   isDirty: (key: string) => boolean,
+  saved?: Record<string, unknown>,
 ) {
   const updates: Record<string, string> = {};
+  const invalid = invalidIdentityFields(fields);
+  const invalidSaved = invalidIdentityFields(saved ?? {});
   for (const key of IDENTITY_OCR_FIELDS) {
     if (isDirty(key)) continue;
-    if (typeof fields[key] === "string") updates[key] = fields[key];
-    else if (previous.has(key)) updates[key] = "";
+    if (saved?.[key] && !invalidSaved.has(key)) continue;
+    if (typeof fields[key] === "string" && !invalid.has(key))
+      updates[key] = fields[key];
+    else if (previous.has(key) || invalidSaved.has(key)) updates[key] = "";
+  }
+  // A valid range read from the card can conflict with a manually entered
+  // endpoint. Preserve that endpoint without applying an impossible range.
+  if (saved && (updates.issueDate || updates.expiryDate)) {
+    const merged = invalidIdentityFields({ ...saved, ...updates });
+    for (const key of ["issueDate", "expiryDate"])
+      if (merged.has(key) && updates[key]) delete updates[key];
   }
   return updates;
 }
@@ -70,6 +82,7 @@ export function missingDocumentFields(
 ) {
   if (kind === "identity") {
     const missing: string[] = [];
+    const invalid = invalidIdentityFields(fields);
     if (typeof fields.iin !== "string" || !/^\d{12}$/.test(fields.iin))
       missing.push("ЖСН (12 сан)");
     const hasCyrillic = (value: unknown) =>
@@ -77,7 +90,7 @@ export function missingDocumentFields(
     const expectsCyrillicNames = [
       fields.lastName,
       fields.firstName,
-      fields.issuedBy,
+      invalid.has("issuedBy") ? undefined : fields.issuedBy,
     ].some(hasCyrillic);
     for (const [key, label] of [
       ["lastName", "тегі"],
@@ -97,7 +110,7 @@ export function missingDocumentFields(
       lastNameLatin: "латынша тегі",
       firstNameLatin: "латынша аты",
     }))
-      if (!fields[key]) missing.push(label);
+      if (!fields[key] || invalid.has(key)) missing.push(label);
     // A patronymic can genuinely be absent from an identity card.
     return missing;
   }

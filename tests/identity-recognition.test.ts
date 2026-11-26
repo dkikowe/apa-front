@@ -18,4 +18,23 @@ describe("Identity recognition feedback and replacement", () => {
     expect(identityAutofillUpdates({iin:"000123456789",phone:"bad",notes:"bad"},new Set(["iin"]),key=>key==="iin")).toEqual({});
     expect(identityAutofillUpdates({},new Set(),()=>false)).toEqual({});
   });
+  it("repairs an invalid saved issuer and end date from the attachment while retaining a valid saved start date", () => {
+    const read = {
+      issuedBy: "ҚР ІШКІ ІСТЕР МИНИСТРЛІГІ",
+      issueDate: "2020-04-16",
+      expiryDate: "2030-04-15",
+    };
+    const saved = {
+      issuedBy: "123456789",
+      issueDate: "2020-04-15",
+      expiryDate: "2030-02-31",
+    };
+    expect(identityAutofillUpdates(read, new Set(), () => false, saved)).toEqual({
+      issuedBy: read.issuedBy,
+      expiryDate: read.expiryDate,
+    });
+    expect(identityAutofillUpdates(read, new Set(), (key) => key === "expiryDate", {
+      ...saved, issuedBy: "ҚР ӘДІЛЕТ МИНИСТРЛІГІ",
+    })).toEqual({});
+  });
 });

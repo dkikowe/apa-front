@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 import {
   participantSchema,
   IDENTITY_FIELDS,
+  invalidIdentityFields,
   validityPeriod,
   ageAt,
   ageGroup,
@@ -39,6 +40,11 @@ export function ParticipantForm({
   const [conflict, setConflict] = useState<any>(null);
   const [blocked, setBlocked] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [savedValues] = useState(() => {
+    const values = { ...participant };
+    for (const key of invalidIdentityFields(values)) delete values[key];
+    return values;
+  });
   const form = useForm<any>({
     resolver: zodResolver(participantSchema),
     defaultValues: {
@@ -57,7 +63,7 @@ export function ParticipantForm({
       issuedBy: "",
       issueDate: "",
       expiryDate: "",
-      ...participant,
+      ...savedValues,
     },
   });
   // Capture the version the user actually opened. Background refetches
@@ -71,9 +77,8 @@ export function ParticipantForm({
     const updates = identityAutofillUpdates(
       fields,
       autoFilled.current,
-      (key) =>
-        form.getFieldState(key).isDirty ||
-        (fillBlanksOnly && !!form.getValues(key)),
+      (key) => form.getFieldState(key).isDirty,
+      fillBlanksOnly ? form.getValues() : undefined,
     );
     for (const [key, value] of Object.entries(updates)) {
       form.setValue(key, value, { shouldValidate: true });

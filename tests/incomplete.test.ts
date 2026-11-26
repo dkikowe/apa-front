@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   participantSchema,
+  validIdentityIssuer,
+  validityPeriod,
   missingParticipantFields,
   ageAt,
   ageGroup,
@@ -36,6 +38,34 @@ describe("Incomplete participant profiles", () => {
     expect(missingParticipantFields({ ...p, issuedBy: "" })).toEqual([
       "Кім берді",
     ]);
+  });
+  it("keeps validity headings and printed dates out of the issuing authority", () => {
+    for (const issuedBy of [
+      "Жарамдылық мерзімі",
+      "Жарамдылык мерзими",
+      "ҚОЛДАНЫЛУ МЕРЗІМІ / СРОК ДЕЙСТВИЯ",
+      "02.05.2020 — 02.О5.2030 г.",
+      "02.05.2020 - 02.05.2030",
+      "Valid until",
+    ]) {
+      expect(validIdentityIssuer(issuedBy)).toBe(false);
+      expect(
+        participantSchema.safeParse({ firstName: "Айша", issuedBy }).success,
+      ).toBe(false);
+    }
+    for (const issuedBy of [
+      "ҚР ІШКІ ІСТЕР МИНИСТРЛІГІ",
+      "МВД РК",
+      "ГУ МВД № 2",
+      "Regional Issuing Authority",
+    ])
+      expect(validIdentityIssuer(issuedBy)).toBe(true);
+    expect(validityPeriod("2020-05-02", "2030-05-02")).toBe(
+      "02.05.2020 — 02.05.2030",
+    );
+    expect(validityPeriod("Жарамдылық мерзімі", "2030-05-02")).toBe(
+      "Көрсетілмеген — 02.05.2030",
+    );
   });
   it("still rejects invalid supplied values and entirely blank cards", () => {
     for (const data of [

@@ -28,6 +28,7 @@ import {
   RECEIPT_TYPES,
   FEE,
   IDENTITY_FIELDS,
+  invalidIdentityFields,
   validityPeriod,
   missingParticipantFields,
 } from "../../shared/domain";
@@ -408,6 +409,7 @@ export function ParticipantDetail() {
   if (query.isLoading) return <Loading />;
   if (query.isError) return <ErrorBox error={query.error} />;
   const p = query.data;
+  const issuer = invalidIdentityFields(p).has("issuedBy") ? "" : p.issuedBy;
   const payments = sortPayments<any>(
     p.payments.filter(
       (x: any) =>
@@ -526,7 +528,9 @@ export function ParticipantDetail() {
               ([key, label]) => (
                 <div key={key}>
                   <dt>{label}</dt>
-                  <dd>{p[key] || "Көрсетілмеген"}</dd>
+                  <dd>
+                    {(key === "issuedBy" ? issuer : p[key]) || "Көрсетілмеген"}
+                  </dd>
                 </div>
               ),
             )}
