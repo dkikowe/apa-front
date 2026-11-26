@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   X,
@@ -24,19 +24,29 @@ export function Modal({
   description,
   children,
   onClose,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
+  closeDisabled = false,
   className = "",
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   onClose: () => void;
+  onOpenAutoFocus?: (event: Event) => void;
+  onCloseAutoFocus?: (event: Event) => void;
+  closeDisabled?: boolean;
   className?: string;
 }) {
   return (
     <Dialog.Root open onOpenChange={(v) => !v && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="modal-overlay" />
-        <Dialog.Content className={`modal ${className}`}>
+        <Dialog.Content
+          className={`modal ${className}`}
+          onOpenAutoFocus={onOpenAutoFocus}
+          onCloseAutoFocus={onCloseAutoFocus}
+        >
           <div className="modal-heading">
             <div>
               <Dialog.Title>{title}</Dialog.Title>
@@ -45,7 +55,11 @@ export function Modal({
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <Button variant="ghost" aria-label="Терезені жабу">
+              <Button
+                variant="ghost"
+                aria-label="Терезені жабу"
+                disabled={closeDisabled}
+              >
                 <X size={22} />
               </Button>
             </Dialog.Close>
@@ -61,39 +75,79 @@ export function Confirm({
   description,
   onClose,
   onConfirm,
+  confirmLabel = "Иә, растаймын",
+  opener,
 }: {
   title: string;
   description: string;
   onClose: () => void;
   onConfirm: () => Promise<unknown>;
+  confirmLabel?: string;
+  opener?: HTMLElement;
 }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const inFlight = useRef(false);
+  const cancel = useRef<HTMLButtonElement>(null);
   return (
     <Modal
       title={title}
       description={description}
-      onClose={() => !busy && onClose()}
+      closeDisabled={busy}
+      onOpenAutoFocus={(event) => {
+        event.preventDefault();
+        cancel.current?.focus();
+      }}
+      onCloseAutoFocus={
+        opener
+          ? (event) => {
+              event.preventDefault();
+              if (opener.isConnected) opener.focus();
+            }
+          : undefined
+      }
+      onClose={() => !inFlight.current && onClose()}
     >
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="modal-actions">
-        <Button variant="outline" disabled={busy} onClick={onClose}>
+        <Button
+          ref={cancel}
+          variant="outline"
+          disabled={busy}
+          onClick={onClose}
+        >
           Бас тарту
         </Button>
         <Button
           variant="destructive"
           disabled={busy}
           onClick={async () => {
+            if (inFlight.current) return;
+            inFlight.current = true;
             setBusy(true);
+            setError("");
             try {
               await onConfirm();
               onClose();
             } catch (e) {
-              toast.error((e as Error).message);
+              setError(
+                e instanceof TypeError
+                  ? "Серверден жауап келмеді. Байланысты тексеріп, қайта көріңіз."
+                  : e instanceof Error
+                    ? e.message
+                    : "Қате орын алды. Қайта көріңіз.",
+              );
             } finally {
+              inFlight.current = false;
               setBusy(false);
             }
           }}
         >
-          {busy ? "Күте тұрыңыз…" : "Иә, растаймын"}
+          {busy ? "Күте тұрыңыз…" : confirmLabel}
         </Button>
       </div>
     </Modal>
@@ -372,17 +426,25 @@ export function PageHeading({
   title,
   description,
   children,
+  focusOnMount = false,
 }: {
   eyebrow?: string;
   title: string;
   description: string;
   children?: ReactNode;
+  focusOnMount?: boolean;
 }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (focusOnMount) heading.current?.focus();
+  }, [focusOnMount]);
   return (
     <div className="page-heading">
       <div>
         {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1>{title}</h1>
+        <h1 ref={heading} tabIndex={focusOnMount ? -1 : undefined}>
+          {title}
+        </h1>
         <p>{description}</p>
       </div>
       <div className="heading-actions">{children}</div>

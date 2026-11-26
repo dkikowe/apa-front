@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Plus,
@@ -16,6 +16,7 @@ import {
   Wallet,
   SlidersHorizontal,
   Check,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { sortPayments } from "../../shared/payment-order";
@@ -214,6 +215,14 @@ export function MemberTable({
 }
 export function Participants({ membership = false }: { membership?: boolean }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const deletedParticipantId = location.state?.deletedParticipantId;
+  useEffect(() => {
+    if (deletedParticipantId)
+      queryClient.removeQueries({
+        queryKey: ["participant", deletedParticipantId],
+      });
+  }, [deletedParticipantId]);
   const [filters, setFilters] = useState<FilterState>(defaultFilters),
     [page, setPage] = useState(1),
     [adding, setAdding] = useState(false),
@@ -233,6 +242,7 @@ export function Participants({ membership = false }: { membership?: boolean }) {
       {importing && <ExcelImport onClose={() => setImporting(false)} />}
       <PageHeading
         eyebrow="ҚАТЫСУШЫЛАР ЕСЕБІ"
+        focusOnMount={!!deletedParticipantId}
         title={membership ? "Мүшелік жарналар" : "Қатысушылар"}
         description={
           membership
@@ -389,6 +399,7 @@ export function ParticipantDetail() {
 }
 
 function ParticipantProfile({ id }: { id?: string }) {
+  const navigate = useNavigate();
   const [year, setYear] = useState(
     Number(new URLSearchParams(location.search).get("year")) ||
       defaultFilters.year,
@@ -413,6 +424,14 @@ function ParticipantProfile({ id }: { id?: string }) {
   if (query.isLoading) return <Loading />;
   if (query.isError) return <ErrorBox error={query.error} />;
   const p = query.data;
+  const fullName = [p.lastName, p.firstName, p.middleName]
+    .filter(Boolean)
+    .join(" ");
+  const deleteLabel =
+    fullName ||
+    p.phone ||
+    p.documentNumber ||
+    (p.iin ? `ЖСН ····${p.iin.slice(-4)}` : "Аты-жөні көрсетілмеген");
   const issuer = invalidIdentityFields(p).has("issuedBy") ? "" : p.issuedBy;
   const payments = sortPayments<any>(
     p.payments.filter(
@@ -430,10 +449,7 @@ function ParticipantProfile({ id }: { id?: string }) {
         Қатысушылар тізіміне
       </Link>
       <PageHeading
-        title={
-          [p.lastName, p.firstName, p.middleName].filter(Boolean).join(" ") ||
-          "Аты-жөні көрсетілмеген"
-        }
+        title={fullName || "Аты-жөні көрсетілмеген"}
         description={
           p.age == null
             ? "Туған күні көрсетілмеген"
@@ -467,6 +483,38 @@ function ParticipantProfile({ id }: { id?: string }) {
         >
           {p.archivedAt ? <RotateCcw size={18} /> : <Archive size={18} />}{" "}
           {p.archivedAt ? "Тізімге қайтару" : "Мұрағатқа жіберу"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={(event) =>
+            setConfirm({
+              title: `${deleteLabel} — карточканы жою керек пе?`,
+              description:
+                "Карточка тізімнен де, мұрағаттан да біржола жойылады. Төлемдері мен чектері есепте сақталады.",
+              confirmLabel: "Жою",
+              opener: event.currentTarget,
+              action: async () => {
+                await api(`/participants/${id}`, { method: "DELETE" });
+                void queryClient.resetQueries({
+                  predicate: ({ queryKey: [key] }) =>
+                    [
+                      "members",
+                      "dashboard-members",
+                      "statistics",
+                      "report-count",
+                      "finance",
+                    ].includes(String(key)),
+                });
+                navigate("/participants", {
+                  replace: true,
+                  state: { deletedParticipantId: id },
+                });
+                toast.success("Қатысушы жойылды");
+              },
+            })
+          }
+        >
+          <Trash2 size={18} /> Қатысушыны жою
         </Button>
       </PageHeading>
       {p.archivedAt && (
@@ -861,6 +909,8 @@ function ParticipantProfile({ id }: { id?: string }) {
         <Confirm
           title={confirm.title}
           description={confirm.description}
+          confirmLabel={confirm.confirmLabel}
+          opener={confirm.opener}
           onClose={() => setConfirm(null)}
           onConfirm={confirm.action}
         />
