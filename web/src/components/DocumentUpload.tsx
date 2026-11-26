@@ -24,6 +24,13 @@ export function DocumentUpload({
   onBlocked?: (blocked: boolean) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
   const applied = useRef(initialDocumentId);
   const callbacks = useRef({ onFields, onDocument, onUploading, onBlocked });
   callbacks.current = { onFields, onDocument, onUploading, onBlocked };
@@ -120,14 +127,27 @@ export function DocumentUpload({
               body.append("kind", kind);
               body.append("file", file);
               const result = await api("/documents", { method: "POST", body });
+              if (!active.current) return;
+              // A cancelled form can reuse the same ID. Replace stale cached
+              // duplicate/queued results and apply the returned fields again.
+              applied.current = "";
+              queryClient.setQueryData(["ocr", result.id], {
+                ...result,
+                _id: result.id,
+              });
               setId(result.id);
               callbacks.current.onDocument(result.id);
+              if (result.status === "done") {
+                applied.current = result.id;
+                callbacks.current.onFields(result.fields || {});
+              }
             } catch (e) {
+              if (!active.current) return;
               setError((e as Error).message);
               if (e instanceof ApiError && e.status === 409)
                 setUploadConflict(e.details);
             } finally {
-              setUploading(false);
+              if (active.current) setUploading(false);
             }
           }}
         />

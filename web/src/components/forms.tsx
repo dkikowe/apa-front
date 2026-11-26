@@ -77,7 +77,7 @@ export function ParticipantForm({
     <Modal
       title={participant ? "Қатысушыны өзгерту" : "Жаңа қатысушы қосу"}
       description="Куәлікті жүктеңіз немесе мәліметтерді өзіңіз толтырыңыз."
-      onClose={() => !form.formState.isSubmitting && !uploading && onClose()}
+      onClose={() => !form.formState.isSubmitting && onClose()}
     >
       <form
         onSubmit={form.handleSubmit(async (values) => {
@@ -266,7 +266,7 @@ export function ParticipantForm({
             type="button"
             variant="outline"
             onClick={onClose}
-            disabled={form.formState.isSubmitting || uploading}
+            disabled={form.formState.isSubmitting}
           >
             Бас тарту
           </Button>
@@ -386,7 +386,7 @@ export function PaymentForm({
     <Modal
       title={payment ? "Төлемді түзету" : "Төлем қосу"}
       description={`${participant.lastName} ${participant.firstName} · ${paymentCategoryLabel(data)}`}
-      onClose={() => !busy && !uploading && !readingText && onClose()}
+      onClose={() => !busy && onClose()}
     >
       <form
         onSubmit={(e) => {
@@ -517,7 +517,7 @@ export function PaymentForm({
           <Button
             type="button"
             variant="outline"
-            disabled={busy || uploading || readingText}
+            disabled={busy}
             onClick={onClose}
           >
             Бас тарту
