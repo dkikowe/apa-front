@@ -1,6 +1,6 @@
 import { IDENTITY_FIELDS } from "./domain.js";
 
-export const RECEIPT_RECOGNITION_VERSION = 3;
+export const RECEIPT_RECOGNITION_VERSION = 4;
 export const IDENTITY_RECOGNITION_VERSION = 3;
 
 export const IDENTITY_OCR_FIELDS = [
@@ -24,6 +24,42 @@ export function identityAutofillUpdates(
     if (isDirty(key)) continue;
     if (typeof fields[key] === "string") updates[key] = fields[key];
     else if (previous.has(key)) updates[key] = "";
+  }
+  return updates;
+}
+
+// A replacement receipt refreshes all untouched OCR fields. When reopening a
+// saved payment, only use its attachment to fill gaps in the saved values.
+export function receiptAutofillUpdates(
+  fields: Record<string, string | number>,
+  current: Record<string, unknown>,
+  touched: ReadonlySet<string>,
+  fillBlanksOnly: boolean,
+) {
+  const updates: Record<string, string | number> = {};
+  for (const key of [
+    "amount",
+    "paymentDate",
+    "paymentTime",
+    "recipientName",
+    "payerName",
+    "receiptNumber",
+    "method",
+    "receiptType",
+  ]) {
+    if (
+      touched.has(key) ||
+      (fillBlanksOnly && String(current[key] ?? "").trim())
+    )
+      continue;
+    const value = fields[key];
+    if (value == null && fillBlanksOnly) continue;
+    updates[key] =
+      value == null
+        ? ""
+        : key === "amount"
+          ? String(Number(value) / 100)
+          : value;
   }
   return updates;
 }

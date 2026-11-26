@@ -15,7 +15,10 @@ import {
   parseMoney,
   today,
 } from "../../../shared/domain";
-import { identityAutofillUpdates } from "../../../shared/document-recognition";
+import {
+  identityAutofillUpdates,
+  receiptAutofillUpdates,
+} from "../../../shared/document-recognition";
 import { api, send, queryClient, ApiError } from "../api";
 import { Button } from "./ui/button";
 import { Modal, Field } from "./common";
@@ -330,40 +333,23 @@ export function PaymentForm({
   const [readingText, setReadingText] = useState(false);
   const [textBlocked, setTextBlocked] = useState(false);
   const [blocked, setBlocked] = useState(false);
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touched = useRef(new Set<string>());
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [duplicate, setDuplicate] = useState<any>(null);
   const update = (key: string, value: any) => {
     setData((old: any) => ({ ...old, [key]: value }));
-    setTouched((old) => ({ ...old, [key]: true }));
+    touched.current.add(key);
     setDuplicate(null);
   };
-  const applyReceiptFields = (fields: Record<string, string | number>) => {
-    setData((old: any) => {
-      const next = { ...old };
-      for (const key of [
-        "amount",
-        "paymentDate",
-        "paymentTime",
-        "recipientName",
-        "payerName",
-        "receiptNumber",
-        "method",
-        "receiptType",
-      ]) {
-        const value = fields[key];
-        if (!touched[key])
-          next[key] =
-            value == null
-              ? ""
-              : key === "amount"
-                ? String(Number(value) / 100)
-                : value;
-      }
-      return next;
-    });
-
+  const applyReceiptFields = (
+    fields: Record<string, string | number>,
+    fillBlanksOnly = false,
+  ) => {
+    setData((old: any) => ({
+      ...old,
+      ...receiptAutofillUpdates(fields, old, touched.current, fillBlanksOnly),
+    }));
     setDuplicate(null);
   };
   const save = async () => {

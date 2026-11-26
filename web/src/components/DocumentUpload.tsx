@@ -40,14 +40,13 @@ export function DocumentUpload({
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(""),
     [uploadConflict, setUploadConflict] = useState<any>(null);
-  const existingIdentity =
-    kind === "identity" && !!id && id === originalAttachment.current;
-  const jobKey = existingIdentity ? ["ocr", id, "attached"] : ["ocr", id];
+  const existingAttachment = !!id && id === originalAttachment.current;
+  const jobKey = existingAttachment ? ["ocr", id, "attached"] : ["ocr", id];
   const job = useQuery({
     queryKey: jobKey,
-    refetchOnMount: existingIdentity ? "always" : true,
+    refetchOnMount: existingAttachment ? "always" : true,
     queryFn: async () => {
-      if (existingIdentity && refreshed.current !== id) {
+      if (existingAttachment && refreshed.current !== id) {
         const latest = await send(`/documents/${id}/refresh`, {});
         refreshed.current = id;
         return latest;
@@ -60,7 +59,7 @@ export function DocumentUpload({
         ? false
         : 1500,
   });
-  const checkingAttachment = existingIdentity && !job.isFetchedAfterMount;
+  const checkingAttachment = existingAttachment && !job.isFetchedAfterMount;
   useEffect(() => {
     if (
       !checkingAttachment &&
@@ -70,10 +69,9 @@ export function DocumentUpload({
     ) {
       applied.current = id;
       const existing = id === originalAttachment.current;
-      if (!existing || kind === "identity")
-        callbacks.current.onFields(job.data.fields || {}, existing);
+      callbacks.current.onFields(job.data.fields || {}, existing);
     }
-  }, [id, job.data, kind, checkingAttachment, job.isError]);
+  }, [id, job.data, checkingAttachment, job.isError]);
   const missingFields =
     job.data?.status === "done"
       ? missingDocumentFields(kind, job.data.fields || {})
