@@ -3156,3 +3156,6 @@ select,
 .payment-category-picker > .button { flex: 0 1 auto; white-space: normal; }
 .payment-category-editor { border: 1px solid #b9d1c8; border-radius: 12px; padding: 16px; margin: 16px 0 0; min-width: 0; }
 .payment-category-editor legend { font-weight: 700; padding: 0 6px; }
+
+.participant-payment-panels { display: flex; flex-direction: column; gap: 24px; min-width: 0; align-self: start; margin-bottom: 24px; }
+.participant-payment-panels > .panel { margin-bottom: 0; }

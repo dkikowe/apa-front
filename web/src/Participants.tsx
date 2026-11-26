@@ -32,6 +32,7 @@ import {
   missingParticipantFields,
 } from "../../shared/domain";
 import { Button } from "./components/ui/button";
+import { PaymentCategorySelect } from "./components/PaymentCategorySelect";
 import {
   defaultFilters,
   type FilterState,
@@ -391,6 +392,13 @@ export function ParticipantDetail() {
     [payment, setPayment] = useState<any>(null),
     [confirm, setConfirm] = useState<any>(null);
   const [receiptText, setReceiptText] = useState("");
+  const [additionalCategory, setAdditionalCategory] = useState<{
+    _id: string;
+    name: string;
+    amount: number;
+  } | null>(null);
+  const [categoryEditing, setCategoryEditing] = useState(false);
+  const [categoryBusy, setCategoryBusy] = useState(false);
   const [paymentCategory, setPaymentCategory] = useState("all");
   const [paymentOrder, setPaymentOrder] = useState<"asc" | "desc">("desc");
   const query = useQuery({
@@ -540,53 +548,117 @@ export function ParticipantDetail() {
             <p className="muted">Куәлік жүктелмеген</p>
           )}
         </section>
-        <section className="panel contribution-panel">
-          <div className="panel-heading">
-            <h2>Мүшелік жарна</h2>
-            <YearSelect value={year} onChange={setYear} />
-          </div>
-          <div className="contribution-values">
-            <div>
-              <span>Төленді</span>
-              <strong>{money(p.totalPaid)}</strong>
+        <div className="participant-payment-panels">
+          <section className="panel contribution-panel">
+            <div className="panel-heading">
+              <h2>Мүшелік жарна</h2>
+              <YearSelect value={year} onChange={setYear} />
             </div>
-            <div>
-              <span>Қалды</span>
-              <strong>{money(p.remaining)}</strong>
+            <div className="contribution-values">
+              <div>
+                <span>Төленді</span>
+                <strong>{money(p.totalPaid)}</strong>
+              </div>
+              <div>
+                <span>Қалды</span>
+                <strong>{money(p.remaining)}</strong>
+              </div>
+              <Status status={p.status} />
             </div>
-            <Status status={p.status} />
-          </div>
-          <div
-            className="progress"
-            role="progressbar"
-            aria-label="Жарнаның төленуі"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(Math.min(100, (p.totalPaid / FEE) * 100))}
-          >
             <div
-              style={{ width: `${Math.min(100, (p.totalPaid / FEE) * 100)}%` }}
+              className="progress"
+              role="progressbar"
+              aria-label="Жарнаның төленуі"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(
+                Math.min(100, (p.totalPaid / FEE) * 100),
+              )}
+            >
+              <div
+                style={{
+                  width: `${Math.min(100, (p.totalPaid / FEE) * 100)}%`,
+                }}
+              />
+            </div>
+            <div className="progress-caption">
+              <span>Жылдық жарна: {money(FEE)}</span>
+              <span>
+                {Math.round(Math.min(100, (p.totalPaid / FEE) * 100))}%
+              </span>
+            </div>
+            {p.overpayment > 0 && (
+              <p className="hint-strip">
+                <Check size={18} />
+                Артық төлем: {money(p.overpayment)}. Келесі жылға автоматты
+                көшірілмейді.
+              </p>
+            )}
+            <Button
+              disabled={!!p.archivedAt}
+              onClick={() => setPayment({ new: true })}
+            >
+              <Plus size={20} />
+              Төлем қосу
+            </Button>
+          </section>
+          <section className="panel contribution-panel" aria-label="Жаңа төлем">
+            <div className="panel-heading">
+              <h2>Жаңа төлем</h2>
+              <YearSelect value={year} onChange={setYear} />
+            </div>
+            <PaymentCategorySelect
+              value={additionalCategory?._id || ""}
+              currentName={additionalCategory?.name}
+              disabled={!!p.archivedAt}
+              onEditing={setCategoryEditing}
+              onBusy={setCategoryBusy}
+              onChange={(id, amount, name) =>
+                setAdditionalCategory(
+                  id && amount !== undefined && name
+                    ? { _id: id, name, amount }
+                    : null,
+                )
+              }
             />
-          </div>
-          <div className="progress-caption">
-            <span>Жылдық жарна: {money(FEE)}</span>
-            <span>{Math.round(Math.min(100, (p.totalPaid / FEE) * 100))}%</span>
-          </div>
-          {p.overpayment > 0 && (
-            <p className="hint-strip">
-              <Check size={18} />
-              Артық төлем: {money(p.overpayment)}. Келесі жылға автоматты
-              көшірілмейді.
-            </p>
-          )}
-          <Button
-            disabled={!!p.archivedAt}
-            onClick={() => setPayment({ new: true })}
-          >
-            <Plus size={20} />
-            Төлем қосу
-          </Button>
-        </section>
+            {additionalCategory && (
+              <div className="contribution-values">
+                <div>
+                  <span>Сома</span>
+                  <strong>{money(additionalCategory.amount)}</strong>
+                </div>
+                <div>
+                  <span>{year} жылы төленді</span>
+                  <strong>
+                    {money(
+                      p.payments
+                        .filter(
+                          (x: any) =>
+                            x.year === year &&
+                            !x.voidedAt &&
+                            x.paymentCategoryId === additionalCategory._id,
+                        )
+                        .reduce((total: number, x: any) => total + x.amount, 0),
+                    )}
+                  </strong>
+                </div>
+              </div>
+            )}
+            <Button
+              disabled={
+                !!p.archivedAt ||
+                !additionalCategory ||
+                categoryEditing ||
+                categoryBusy
+              }
+              onClick={() =>
+                setPayment({ new: true, category: additionalCategory })
+              }
+            >
+              <Plus size={20} /> Төлем қосу
+            </Button>
+          </section>
+        </div>
       </div>
       <section className="panel">
         <div className="panel-heading">
@@ -780,6 +852,7 @@ export function ParticipantDetail() {
           participant={p}
           year={year}
           payment={payment.new ? undefined : payment}
+          initialCategory={payment.new ? payment.category : undefined}
           onClose={() => setPayment(null)}
         />
       )}

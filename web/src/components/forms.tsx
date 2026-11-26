@@ -12,6 +12,7 @@ import {
   ageGroup,
   AGE_LABELS,
   RECEIPT_TYPES,
+  paymentCategoryLabel,
   parseMoney,
   today,
 } from "../../../shared/domain";
@@ -22,7 +23,6 @@ import { Modal, Field } from "./common";
 import { LocationSelect } from "./LocationSelect";
 import { ReceiptTextInput } from "./ReceiptTextInput";
 import { DuplicateNotice } from "./DuplicateNotice";
-import { PaymentCategorySelect } from "./PaymentCategorySelect";
 import { DocumentUpload } from "./DocumentUpload";
 export function ParticipantForm({
   participant,
@@ -285,17 +285,25 @@ export function PaymentForm({
   participant,
   year,
   payment,
+  initialCategory,
   onClose,
 }: {
   participant: any;
   year: number;
   payment?: any;
+  initialCategory?: { _id: string; name: string; amount: number };
   onClose: () => void;
 }) {
   const [data, setData] = useState<any>({
     year,
-    paymentCategoryId: "",
-    amount: payment ? String(payment.amount / 100) : "",
+    paymentCategoryId: initialCategory?._id || "",
+    paymentCategoryName: initialCategory?.name,
+    paymentKind: initialCategory ? "additional" : "membership",
+    amount: payment
+      ? String(payment.amount / 100)
+      : initialCategory
+        ? String(initialCategory.amount / 100)
+        : "",
     paymentDate: today(),
     paymentTime: "",
     receiptType: "",
@@ -310,8 +318,6 @@ export function PaymentForm({
   });
   const [uploading, setUploading] = useState(false);
   const [readingText, setReadingText] = useState(false);
-  const [categoryEditing, setCategoryEditing] = useState(false);
-  const [categoryBusy, setCategoryBusy] = useState(false);
   const [textBlocked, setTextBlocked] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -351,15 +357,7 @@ export function PaymentForm({
     setDuplicate(null);
   };
   const save = async () => {
-    if (
-      uploading ||
-      readingText ||
-      blocked ||
-      textBlocked ||
-      categoryEditing ||
-      categoryBusy
-    )
-      return;
+    if (uploading || readingText || blocked || textBlocked) return;
     setBusy(true);
     setError("");
     try {
@@ -387,10 +385,8 @@ export function PaymentForm({
   return (
     <Modal
       title={payment ? "Төлемді түзету" : "Төлем қосу"}
-      description={`${participant.lastName} ${participant.firstName} · төлем түрін таңдап, соманы енгізіңіз.`}
-      onClose={() =>
-        !busy && !uploading && !readingText && !categoryBusy && onClose()
-      }
+      description={`${participant.lastName} ${participant.firstName} · ${paymentCategoryLabel(data)}`}
+      onClose={() => !busy && !uploading && !readingText && onClose()}
     >
       <form
         onSubmit={(e) => {
@@ -398,22 +394,6 @@ export function PaymentForm({
           void save();
         }}
       >
-        <PaymentCategorySelect
-          value={data.paymentCategoryId || ""}
-          currentName={data.paymentCategoryName}
-          disabled={busy || uploading || readingText || categoryBusy}
-          onEditing={setCategoryEditing}
-          onBusy={setCategoryBusy}
-          onChange={(id, amount) => {
-            setData((old: any) => ({
-              ...old,
-              paymentCategoryId: id,
-              amount: amount === undefined ? "" : String(amount / 100),
-            }));
-            setTouched((old) => ({ ...old, amount: false }));
-            setDuplicate(null);
-          }}
-        />
         <Field label="Чек түрі">
           <select
             value={data.receiptType}
@@ -537,7 +517,7 @@ export function PaymentForm({
           <Button
             type="button"
             variant="outline"
-            disabled={busy || uploading || readingText || categoryBusy}
+            disabled={busy || uploading || readingText}
             onClick={onClose}
           >
             Бас тарту
@@ -549,9 +529,7 @@ export function PaymentForm({
               uploading ||
               readingText ||
               blocked ||
-              textBlocked ||
-              categoryEditing ||
-              categoryBusy
+              textBlocked
             }
           >
             <Check size={18} />

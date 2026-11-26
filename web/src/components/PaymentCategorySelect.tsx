@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import {
-  MEMBERSHIP_PAYMENT_LABEL,
-  money,
-  parseMoney,
-} from "../../../shared/domain";
+import { money, parseMoney } from "../../../shared/domain";
 import { api, send, queryClient } from "../api";
 import { Field } from "./common";
 import { Button } from "./ui/button";
@@ -22,7 +18,7 @@ export function PaymentCategorySelect({
   value: string;
   currentName?: string;
   disabled: boolean;
-  onChange: (id: string, amount?: number) => void;
+  onChange: (id: string, amount?: number, name?: string) => void;
   onEditing: (editing: boolean) => void;
   onBusy: (busy: boolean) => void;
 }) {
@@ -72,7 +68,7 @@ export function PaymentCategorySelect({
           ],
         }),
       );
-      onChange(created._id, created.amount);
+      onChange(created._id, created.amount, created.name);
       edit(false);
       setName("");
       setAmount("");
@@ -98,10 +94,11 @@ export function PaymentCategorySelect({
             }
             onChange={(e) => {
               const id = e.target.value;
-              onChange(id, items.find((x) => x._id === id)?.amount);
+              const selected = items.find((x) => x._id === id);
+              onChange(id, selected?.amount, selected?.name);
             }}
           >
-            <option value="">{MEMBERSHIP_PAYMENT_LABEL}</option>
+            <option value="">Төлемді таңдаңыз</option>
             {value && !items.some((x) => x._id === value) && (
               <option value={value}>{currentName || "Қосымша төлем"}</option>
             )}
