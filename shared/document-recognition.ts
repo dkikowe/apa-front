@@ -1,7 +1,7 @@
 import { IDENTITY_FIELDS } from "./domain.js";
 
-export const RECEIPT_RECOGNITION_VERSION = 5;
-export const IDENTITY_RECOGNITION_VERSION = 4;
+export const RECEIPT_RECOGNITION_VERSION = 6;
+export const IDENTITY_RECOGNITION_VERSION = 5;
 
 export const IDENTITY_OCR_FIELDS = [
   "lastName",
@@ -72,8 +72,22 @@ export function missingDocumentFields(
     const missing: string[] = [];
     if (typeof fields.iin !== "string" || !/^\d{12}$/.test(fields.iin))
       missing.push("ЖСН (12 сан)");
-    if (!fields.lastName && !fields.lastNameLatin) missing.push("тегі");
-    if (!fields.firstName && !fields.firstNameLatin) missing.push("аты");
+    const hasCyrillic = (value: unknown) =>
+      typeof value === "string" && /\p{Script=Cyrillic}/u.test(value);
+    const expectsCyrillicNames = [
+      fields.lastName,
+      fields.firstName,
+      fields.issuedBy,
+    ].some(hasCyrillic);
+    for (const [key, label] of [
+      ["lastName", "тегі"],
+      ["firstName", "аты"],
+    ]) {
+      const hasName = expectsCyrillicNames
+        ? hasCyrillic(fields[key])
+        : fields[key] || fields[key + "Latin"];
+      if (!hasName) missing.push(label);
+    }
     if (!fields.birthDate) missing.push("туған күні");
     for (const [key, label] of Object.entries({
       documentNumber: "куәлік нөмірі",
