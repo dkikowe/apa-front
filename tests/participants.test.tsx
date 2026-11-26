@@ -1,8 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ParticipantForm } from "../web/src/components/forms";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { MemberTable } from "../web/src/Participants";
 import { participantSchema } from "../shared/domain";
+vi.mock("../web/src/components/common", async (original) => {
+  const components = await original<typeof import("../web/src/components/common")>();
+  return { ...components, Modal: ({children}: {children: React.ReactNode}) => <div>{children}</div> };
+});
+
+it("lets the user choose a document without showing the incomplete-profile banner", () => {
+  const client = new QueryClient();
+  const html = renderToStaticMarkup(
+    <QueryClientProvider client={client}>
+      <ParticipantForm participant={{_id:"sample", firstName:"Сынақ"}} onClose={() => {}} />
+    </QueryClientProvider>,
+  );
+  expect(html).toContain("Жеке куәлікті жүктеу");
+  expect(html).not.toContain("Толық емес");
+  expect(html).not.toContain("Белгісіз мәліметтерді бос қалдырып");
+  client.clear();
+});
 const render = (p: object) =>
   renderToStaticMarkup(
     <MemoryRouter>

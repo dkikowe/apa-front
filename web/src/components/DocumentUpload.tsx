@@ -16,7 +16,7 @@ export function DocumentUpload({
   onBlocked,
 }: {
   kind: "identity" | "receipt";
-  onFields: (fields: any) => void;
+  onFields: (fields: any, fillBlanksOnly?: boolean) => void;
   onDocument: (id: string) => void;
   onUploading?: (uploading: boolean) => void;
   disabled?: boolean;
@@ -31,35 +31,57 @@ export function DocumentUpload({
       active.current = false;
     };
   }, []);
-  const applied = useRef(initialDocumentId);
+  const originalAttachment = useRef(initialDocumentId);
+  const refreshed = useRef("");
+  const applied = useRef("");
   const callbacks = useRef({ onFields, onDocument, onUploading, onBlocked });
   callbacks.current = { onFields, onDocument, onUploading, onBlocked };
   const [id, setId] = useState(initialDocumentId),
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(""),
     [uploadConflict, setUploadConflict] = useState<any>(null);
+  const existingIdentity =
+    kind === "identity" && !!id && id === originalAttachment.current;
+  const jobKey = existingIdentity ? ["ocr", id, "attached"] : ["ocr", id];
   const job = useQuery({
-    queryKey: ["ocr", id],
-    queryFn: () => api(`/documents/${id}`),
+    queryKey: jobKey,
+    refetchOnMount: existingIdentity ? "always" : true,
+    queryFn: async () => {
+      if (existingIdentity && refreshed.current !== id) {
+        const latest = await send(`/documents/${id}/refresh`, {});
+        refreshed.current = id;
+        return latest;
+      }
+      return api(`/documents/${id}`);
+    },
     enabled: !!id,
     refetchInterval: (q) =>
       ["done", "failed", "duplicate"].includes(q.state.data?.status)
         ? false
         : 1500,
   });
+  const checkingAttachment = existingIdentity && !job.isFetchedAfterMount;
   useEffect(() => {
-    if (job.data?.status === "done" && applied.current !== id) {
+    if (
+      !checkingAttachment &&
+      !job.isError &&
+      job.data?.status === "done" &&
+      applied.current !== id
+    ) {
       applied.current = id;
-      callbacks.current.onFields(job.data.fields || {});
+      const existing = id === originalAttachment.current;
+      if (!existing || kind === "identity")
+        callbacks.current.onFields(job.data.fields || {}, existing);
     }
-  }, [id, job.data]);
+  }, [id, job.data, kind, checkingAttachment, job.isError]);
   const missingFields =
     job.data?.status === "done"
       ? missingDocumentFields(kind, job.data.fields || {})
       : [];
   const processing =
     !!id &&
-    !["done", "failed", "duplicate"].includes(job.data?.status) &&
+    (checkingAttachment ||
+      !["done", "failed", "duplicate"].includes(job.data?.status)) &&
     !job.isError;
   const conflict =
     uploadConflict ||
@@ -132,6 +154,7 @@ export function DocumentUpload({
               if (!active.current) return;
               // A cancelled form can reuse the same ID. Replace stale cached
               // duplicate/queued results and apply the returned fields again.
+              originalAttachment.current = "";
               applied.current = "";
               queryClient.setQueryData(["ocr", result.id], {
                 ...result,
@@ -173,7 +196,7 @@ export function DocumentUpload({
                 setError("");
                 try {
                   await send(`/documents/${id}/retry`, {});
-                  queryClient.setQueryData(["ocr", id], {
+                  queryClient.setQueryData(jobKey, {
                     ...job.data,
                     status: "queued",
                   });
@@ -197,6 +220,7 @@ export function DocumentUpload({
                 variant="outline"
                 onClick={() => {
                   const existingId = conflict.duplicateDocumentId;
+                  originalAttachment.current = "";
                   applied.current = "";
                   setUploadConflict(null);
                   setError("");

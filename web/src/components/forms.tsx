@@ -7,7 +7,6 @@ import {
   participantSchema,
   IDENTITY_FIELDS,
   validityPeriod,
-  missingParticipantFields,
   ageAt,
   ageGroup,
   AGE_LABELS,
@@ -58,12 +57,20 @@ export function ParticipantForm({
       ...participant,
     },
   });
+  // Capture the version the user actually opened. Background refetches
+  // must not silently replace the baseline of an already open form.
+  const openedParticipant = useRef(participant);
   const autoFilled = useRef(new Set<string>());
-  const applyIdentityFields = (fields: Record<string, unknown>) => {
+  const applyIdentityFields = (
+    fields: Record<string, unknown>,
+    fillBlanksOnly = false,
+  ) => {
     const updates = identityAutofillUpdates(
       fields,
       autoFilled.current,
-      (key) => form.getFieldState(key).isDirty,
+      (key) =>
+        form.getFieldState(key).isDirty ||
+        (fillBlanksOnly && !!form.getValues(key)),
     );
     for (const [key, value] of Object.entries(updates)) {
       form.setValue(key, value, { shouldValidate: true });
@@ -72,7 +79,6 @@ export function ParticipantForm({
     }
   };
   const birth = form.watch("birthDate");
-  const missing = missingParticipantFields(form.watch());
   return (
     <Modal
       title={participant ? "Қатысушыны өзгерту" : "Жаңа қатысушы қосу"}
@@ -89,7 +95,17 @@ export function ParticipantForm({
               participant
                 ? `/participants/${participant._id}`
                 : "/participants",
-              values,
+              participant
+                ? {
+                    ...values,
+                    previousValues: Object.fromEntries(
+                      Object.keys(values).map((key) => [
+                        key,
+                        String(openedParticipant.current?.[key] ?? ""),
+                      ]),
+                    ),
+                  }
+                : values,
               participant ? "PATCH" : "POST",
             );
             await queryClient.invalidateQueries();
@@ -100,6 +116,11 @@ export function ParticipantForm({
             onClose();
           } catch (e) {
             setError((e as Error).message);
+            if (e instanceof ApiError && e.status === 412) {
+              await queryClient.invalidateQueries({
+                queryKey: ["participant", participant._id],
+              });
+            }
             if (e instanceof ApiError && e.status === 409)
               setConflict(e.details);
           }
@@ -116,12 +137,6 @@ export function ParticipantForm({
           }}
           onFields={applyIdentityFields}
         />
-        {missing.length > 0 && (
-          <p className="notice-strip">
-            <strong>Толық емес.</strong> Белгісіз мәліметтерді бос қалдырып,
-            сақтай аласыз. Кейін толықтырыңыз.
-          </p>
-        )}
         <div className="form-section-label">Қатысушы туралы</div>
         <div className="form-grid">
           {[

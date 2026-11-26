@@ -468,13 +468,6 @@ export function ParticipantDetail() {
           Бұл қатысушы мұрағатта. Жаңа төлем қосу үшін тізімге қайтарыңыз.
         </div>
       )}
-      {missingParticipantFields(p).length > 0 && (
-        <div className="notice-strip">
-          <strong>Толық емес.</strong> Толтыру керек:{" "}
-          {missingParticipantFields(p).join(", ")}. «Өзгерту» батырмасын басып,
-          кейін толықтыра аласыз.
-        </div>
-      )}
       <div className="detail-grid">
         <section className="panel profile-panel">
           <h2>Қатысушы туралы</h2>
