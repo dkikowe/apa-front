@@ -1,5 +1,6 @@
 import { IDENTITY_FIELDS } from "./domain.js";
 
+export const RECEIPT_RECOGNITION_VERSION = 3;
 export const IDENTITY_RECOGNITION_VERSION = 2;
 
 export const IDENTITY_OCR_FIELDS = [
@@ -56,6 +57,7 @@ export function missingDocumentFields(
     paymentTime: "уақыт",
     receiptNumber: "чек нөмірі",
     recipientName: "алушы",
+    payerName: "төлем жасаған адам",
     method: "төлем тәсілі",
   })
     .filter(([key]) => !fields[key])
