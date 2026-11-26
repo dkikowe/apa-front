@@ -1,5 +1,7 @@
 import { IDENTITY_FIELDS } from "./domain.js";
 
+export const IDENTITY_RECOGNITION_VERSION = 2;
+
 export const IDENTITY_OCR_FIELDS = [
   "lastName",
   "firstName",
@@ -36,6 +38,16 @@ export function missingDocumentFields(
     if (!fields.lastName && !fields.lastNameLatin) missing.push("тегі");
     if (!fields.firstName && !fields.firstNameLatin) missing.push("аты");
     if (!fields.birthDate) missing.push("туған күні");
+    for (const [key, label] of Object.entries({
+      documentNumber: "куәлік нөмірі",
+      issuedBy: "кім берді",
+      issueDate: "берілген күні",
+      expiryDate: "жарамдылық мерзімі",
+      lastNameLatin: "латынша тегі",
+      firstNameLatin: "латынша аты",
+    }))
+      if (!fields[key]) missing.push(label);
+    // A patronymic can genuinely be absent from an identity card.
     return missing;
   }
   return Object.entries({
