@@ -57,7 +57,7 @@ export function ReceiptTextInput({
             setMessage(
               fields.amount && fields.paymentDate
                 ? "Мәтін оқылды. Төмендегі сома, күн және уақытты тексеріңіз."
-                : "Мәтін толық оқылмады. Жетіспейтін мәліметтерді қолмен толтырыңыз.",
+                : "Чектің толық мәтінін көшіріп, қайта оқытыңыз.",
             );
           } catch (e) {
             if (e instanceof ApiError && e.status === 409)

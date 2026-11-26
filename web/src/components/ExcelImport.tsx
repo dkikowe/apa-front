@@ -272,8 +272,7 @@ export function ExcelImport({ onClose }: { onClose: () => void }) {
               {preview.incomplete > 0 && (
                 <p className="notice-strip">
                   <strong>{preview.incomplete} қатысушы — «Толық емес».</strong>{" "}
-                  Мәліметі жетіспесе де қосылады. Кейін карточкасынан толықтыра
-                  аласыз.
+                  Бұл қатысушылар да тізімге қосылады.
                 </p>
               )}
               <p className="small-note">

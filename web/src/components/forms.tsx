@@ -82,7 +82,6 @@ export function ParticipantForm({
   return (
     <Modal
       title={participant ? "Қатысушыны өзгерту" : "Жаңа қатысушы қосу"}
-      description="Куәлікті жүктеңіз немесе мәліметтерді өзіңіз толтырыңыз."
       onClose={() => !form.formState.isSubmitting && onClose()}
     >
       <form
@@ -259,10 +258,6 @@ export function ParticipantForm({
               <input {...form.register("firstNameLatin")} />
             </Field>
           </div>
-          <p className="small-note">
-            Куәліктен автоматты оқылады. Жазылуын тексеріңіз; құжатта жоқ болса,
-            бос қалдырыңыз.
-          </p>
         </section>
         <Field
           label="Ескертпе"
@@ -479,7 +474,6 @@ export function PaymentForm({
               value={data.paymentTime}
               onChange={(e) => update("paymentTime", e.target.value)}
             />
-            <span className="small-note">Чекте жоқ болса, бос қалдырыңыз.</span>
           </Field>
           <Field label="Төлеген адам">
             <input
@@ -487,9 +481,6 @@ export function PaymentForm({
               onChange={(e) => update("payerName", e.target.value)}
               placeholder="Чектегі төлеушінің аты-жөні"
             />
-            <span className="small-note">
-              Басқа адам төлеген болса, чекте көрсетілген адамды жазыңыз.
-            </span>
           </Field>
           <Field label="Алушының атауы">
             <input

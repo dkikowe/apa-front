@@ -86,7 +86,7 @@ export function displayDate(value = today()) {
 export function parseMoney(value: string) {
   const cleaned = value.replace(/\s/g, "").replace(",", ".");
   if (!/^\d{1,10}(\.\d{1,2})?$/.test(cleaned))
-    throw new Error("Соманы дұрыс енгізіңіз");
+    throw new Error("Соманың пішімі дұрыс емес");
   const [major, minor = ""] = cleaned.split(".");
   return Number(major) * 100 + Number(minor.padEnd(2, "0"));
 }
@@ -98,7 +98,7 @@ export const dateSchema = z
       !isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v,
     "Күн дұрыс емес",
   );
-const name = z.string().trim().min(1, "Бұл жолды толтырыңыз").max(100);
+const name = z.string().trim().min(1, "Міндетті өріс").max(100);
 export const IDENTITY_FIELDS = [
   ["iin", "ЖСН (12 сан)"],
   ["documentNumber", "Куәлік нөмірі"],
@@ -167,7 +167,7 @@ export const participantSchema = z
         v.lastName || v.firstName || v.phone || v.iin || v.documentNumber,
       ),
     {
-      message: "Кемінде аты-жөнін, телефонды немесе құжат нөмірін енгізіңіз",
+      message: "Аты-жөні, телефоны немесе құжат нөмірі қажет",
       path: ["lastName"],
     },
   )
