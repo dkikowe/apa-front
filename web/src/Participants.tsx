@@ -398,6 +398,15 @@ export function ParticipantDetail() {
   return <ParticipantProfile key={id} id={id} />;
 }
 
+function paymentCategoryKey(payment: {
+  paymentKind?: string | null;
+  paymentCategoryId?: string | null;
+  paymentCategoryName?: string | null;
+}) {
+  if (payment.paymentKind !== "additional") return "membership";
+  return payment.paymentCategoryId || `name:${paymentCategoryLabel(payment)}`;
+}
+
 function ParticipantProfile({ id }: { id?: string }) {
   const navigate = useNavigate();
   const [year, setYear] = useState(
@@ -433,12 +442,24 @@ function ParticipantProfile({ id }: { id?: string }) {
     p.documentNumber ||
     (p.iin ? `ЖСН ····${p.iin.slice(-4)}` : "Аты-жөні көрсетілмеген");
   const issuer = invalidIdentityFields(p).has("issuedBy") ? "" : p.issuedBy;
+  const categoryNames = new Map<string, string>();
+  const paidByCategory = new Map<string, number>();
+  let totalPaidForYear = p.totalPaid;
+  for (const item of p.payments) {
+    if (item.paymentKind !== "additional") continue;
+    const key = paymentCategoryKey(item);
+    categoryNames.set(key, paymentCategoryLabel(item));
+    if (item.year === year && !item.voidedAt) {
+      paidByCategory.set(key, (paidByCategory.get(key) ?? 0) + item.amount);
+      totalPaidForYear += item.amount;
+    }
+  }
   const payments = sortPayments<any>(
     p.payments.filter(
       (x: any) =>
         x.year === year &&
         (paymentCategory === "all" ||
-          (x.paymentCategoryId || "membership") === paymentCategory),
+          paymentCategoryKey(x) === paymentCategory),
     ),
     paymentOrder,
   );
@@ -668,6 +689,29 @@ function ParticipantProfile({ id }: { id?: string }) {
               <h2>Жаңа төлем</h2>
               <YearSelect value={year} onChange={setYear} />
             </div>
+            <section
+              className="paid-summary"
+              aria-labelledby="paid-summary-title"
+            >
+              <h3 id="paid-summary-title">{year} жылы төленген сомалар</h3>
+              <dl>
+                <div>
+                  <dt>Мүшелік жарна</dt>
+                  <dd>{money(p.totalPaid)}</dd>
+                </div>
+                {Array.from(paidByCategory, ([key, amount]) => (
+                  <div key={key}>
+                    <dt>{categoryNames.get(key)}</dt>
+                    <dd>{money(amount)}</dd>
+                  </div>
+                ))}
+                <div className="paid-summary-total">
+                  <dt>Барлығы төленді</dt>
+                  <dd>{money(totalPaidForYear)}</dd>
+                </div>
+              </dl>
+              {paidByCategory.size === 0 && <p>Қосымша төлем тіркелмеген</p>}
+            </section>
             <PaymentCategorySelect
               value={additionalCategory?._id || ""}
               currentName={additionalCategory?.name}
@@ -691,16 +735,7 @@ function ParticipantProfile({ id }: { id?: string }) {
                 <div>
                   <span>{year} жылы төленді</span>
                   <strong>
-                    {money(
-                      p.payments
-                        .filter(
-                          (x: any) =>
-                            x.year === year &&
-                            !x.voidedAt &&
-                            x.paymentCategoryId === additionalCategory._id,
-                        )
-                        .reduce((total: number, x: any) => total + x.amount, 0),
-                    )}
+                    {money(paidByCategory.get(additionalCategory._id) ?? 0)}
                   </strong>
                 </div>
               </div>
@@ -735,19 +770,7 @@ function ParticipantProfile({ id }: { id?: string }) {
             >
               <option value="all">Барлық төлемдер</option>
               <option value="membership">Мүшелік жарна</option>
-              {[
-                ...new Map<string, string>(
-                  p.payments
-                    .filter((x: any) => x.paymentCategoryId)
-                    .map(
-                      (x: any) =>
-                        [
-                          String(x.paymentCategoryId),
-                          paymentCategoryLabel(x),
-                        ] as [string, string],
-                    ),
-                ),
-              ].map(([id, name]) => (
+              {Array.from(categoryNames, ([id, name]) => (
                 <option key={id} value={id}>
                   {name}
                 </option>
