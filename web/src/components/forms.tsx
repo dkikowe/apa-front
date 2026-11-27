@@ -424,7 +424,7 @@ export function PaymentForm({
     data.receiptDocumentId === payment?.receiptDocumentId &&
     (data.receiptText || "") === (payment?.receiptText || "") &&
     receiptKey(data.receiptNumber) === receiptKey(payment?.receiptNumber);
-  const sourceMismatch = !!(
+  const fileMismatch = !!(
     data.receiptDocumentId &&
     data.receiptText &&
     !unchangedSources &&
@@ -432,6 +432,19 @@ export function PaymentForm({
       fileNumber !== acceptedText.current.number ||
       fileNumber !== receiptKey(data.receiptNumber))
   );
+  const textNumber =
+    acceptedText.current.number ||
+    (savedTextOnly
+      ? receiptKey(savedTextEvidence.data?.fields?.receiptNumber)
+      : "");
+  const sourceMismatch =
+    fileMismatch ||
+    !!(
+      data.receiptText &&
+      !unchangedSources &&
+      textNumber &&
+      textNumber !== receiptKey(data.receiptNumber)
+    );
   const clearRecognizedText = (preserveSavedCorrections = false) => {
     const clear: Record<string, string> = {};
     if (
@@ -527,43 +540,6 @@ export function PaymentForm({
             ))}
           </select>
         </Field>
-        <DocumentUpload
-          kind="receipt"
-          allowSavedEdits={unchangedSources}
-          onBlocked={setBlocked}
-          initialDocumentId={payment?.receiptDocumentId || ""}
-          disabled={busy || readingText || savedTextEvidence.isLoading}
-          replacingRecognizedText={!!data.receiptText}
-          onUploading={setUploading}
-          onDocument={(id, previous) => {
-            if (id === data.receiptDocumentId) return;
-            const fromText = clearRecognizedText(true);
-            setFileNumber("");
-            setTextBlocked(false);
-            const changes =
-              previous &&
-              previousAttachmentChanges(
-                "receipt",
-                previous,
-                payment?.receiptDocumentId,
-                { ...data, ...fromText },
-                (key) => touched.current.has(key),
-              );
-            for (const key of changes?.preserve || []) touched.current.add(key);
-            setData((old: any) => ({
-              ...old,
-              ...fromText,
-              ...changes?.clear,
-              receiptText: "",
-              receiptDocumentId: id,
-            }));
-            setDuplicate(null);
-          }}
-          onFields={(fields, fillBlanksOnly) => {
-            setFileNumber(receiptKey(fields.receiptNumber));
-            applyReceiptFields(fields, fillBlanksOnly);
-          }}
-        />
         <ReceiptTextInput
           key={data.receiptDocumentId || "no-file"}
           paymentId={payment?._id}
@@ -602,10 +578,46 @@ export function PaymentForm({
             setDuplicate(null);
           }}
         />
+        <DocumentUpload
+          kind="receipt"
+          allowSavedEdits={unchangedSources}
+          onBlocked={setBlocked}
+          initialDocumentId={payment?.receiptDocumentId || ""}
+          disabled={busy || readingText || savedTextEvidence.isLoading}
+          replacingRecognizedText={!!data.receiptText}
+          onUploading={setUploading}
+          onDocument={(id, previous) => {
+            if (id === data.receiptDocumentId) return;
+            const fromText = clearRecognizedText(true);
+            setFileNumber("");
+            setTextBlocked(false);
+            const changes =
+              previous &&
+              previousAttachmentChanges(
+                "receipt",
+                previous,
+                payment?.receiptDocumentId,
+                { ...data, ...fromText },
+                (key) => touched.current.has(key),
+              );
+            for (const key of changes?.preserve || []) touched.current.add(key);
+            setData((old: any) => ({
+              ...old,
+              ...fromText,
+              ...changes?.clear,
+              receiptText: "",
+              receiptDocumentId: id,
+            }));
+            setDuplicate(null);
+          }}
+          onFields={(fields, fillBlanksOnly) => {
+            setFileNumber(receiptKey(fields.receiptNumber));
+            applyReceiptFields(fields, fillBlanksOnly);
+          }}
+        />
         <div className="form-grid">
           <Field label="Төленген сома, ₸ *">
             <input
-              autoFocus
               inputMode="decimal"
               required
               value={data.amount}
@@ -680,7 +692,9 @@ export function PaymentForm({
         {duplicate && <DuplicateNotice details={duplicate} />}
         {sourceMismatch && (
           <p className="field-error" role="alert">
-            {mismatchMessage}
+            {fileMismatch
+              ? mismatchMessage
+              : "Төлемдегі чек нөмірі мәтіндегі чек нөміріне сәйкес келуі керек."}
           </p>
         )}
         {error && (

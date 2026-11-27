@@ -30,66 +30,77 @@ export function ReceiptTextInput({
     callbacks.current.onBlocked(!!value.trim() && value !== initialText);
     if (!value.trim()) callbacks.current.onClear();
   }
+  async function readText(value: string) {
+    if (!value.trim() || busy || disabled) return;
+    setBusy(true);
+    callbacks.current.onReading(true);
+    setMessage("");
+    try {
+      const { fields } = await send("/receipts/recognize-text", {
+        text: value,
+        paymentId,
+      });
+      callbacks.current.onFields(fields, value);
+      callbacks.current.onBlocked(false);
+      setMessage(
+        fields.amount && fields.paymentDate
+          ? "Чек оқылды. Төлемді тексеріп, «Төлемді сақтау» батырмасын басыңыз."
+          : "Чектің толық мәтінін көшіріп, қайта оқытыңыз.",
+      );
+    } catch (e) {
+      callbacks.current.onBlocked(true);
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+      callbacks.current.onReading(false);
+    }
+  }
   return (
-    <details className="optional-fields" open={initialText ? true : undefined}>
-      <summary>Чек WhatsApp-та мәтінмен келді ме?</summary>
-      <Field label="Чек мәтіні">
+    <div className="receipt-text-input">
+      <Field label="WhatsApp-тағы чек мәтінін қойыңыз">
         <textarea
-          rows={6}
+          rows={3}
           maxLength={20000}
           value={text}
           disabled={busy || disabled}
-          placeholder="WhatsApp-тағы чектің мәтінін көшіріп, осында қойыңыз."
-          onChange={(e) => changeText(e.target.value)}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            changeText(value);
+            if (
+              (event.nativeEvent as InputEvent).inputType === "insertFromPaste"
+            )
+              void readText(value);
+          }}
         />
       </Field>
-      <Button
-        type="button"
-        variant="outline"
-        disabled={disabled || busy || !text.trim()}
-        onClick={async () => {
-          setBusy(true);
-          callbacks.current.onReading(true);
-          setMessage("");
-          try {
-            const { fields } = await send("/receipts/recognize-text", {
-              text,
-              paymentId,
-            });
-            callbacks.current.onFields(fields, text);
-            callbacks.current.onBlocked(false);
-            setMessage(
-              fields.amount && fields.paymentDate
-                ? "Мәтін оқылды. Төмендегі сома, күн және уақытты тексеріңіз."
-                : "Чектің толық мәтінін көшіріп, қайта оқытыңыз.",
-            );
-          } catch (e) {
-            callbacks.current.onBlocked(true);
-            setMessage((e as Error).message);
-          } finally {
-            setBusy(false);
-            callbacks.current.onReading(false);
-          }
-        }}
-      >
-        {busy ? "Оқылуда…" : "Мәтінді оқу"}
-      </Button>
-      {text && (
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={disabled || busy}
-          onClick={() => changeText("")}
-        >
-          Мәтінді өшіру
-        </Button>
+      {text.trim() && (
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled || busy}
+            onClick={() => void readText(text)}
+          >
+            {busy ? "Оқылуда…" : "Мәтінді оқу"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={disabled || busy}
+            onClick={() => changeText("")}
+          >
+            Мәтінді өшіру
+          </Button>
+        </>
       )}
       <p className="small-note" role="status">
-        {message ||
-          (text.trim() && text !== initialText
-            ? "«Мәтінді оқу» батырмасын басыңыз."
-            : "Оқылған мәліметтерді тексеріп, «Төлемді сақтау» батырмасын басыңыз.")}
+        {busy
+          ? "Чек оқылуда…"
+          : message ||
+            (text.trim() && text !== initialText
+              ? "«Мәтінді оқу» батырмасын басыңыз."
+              : "")}
       </p>
-    </details>
+    </div>
   );
 }

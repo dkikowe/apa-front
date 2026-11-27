@@ -73,6 +73,7 @@ async function chooseFile(name: string) {
 async function typeValue(
   input: HTMLInputElement | HTMLTextAreaElement,
   value: string,
+  inputType = "insertText",
 ) {
   const prototype =
     input instanceof HTMLInputElement
@@ -80,14 +81,106 @@ async function typeValue(
       : HTMLTextAreaElement.prototype;
   Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(input, value);
   await act(async () =>
-    input.dispatchEvent(new Event("input", { bubbles: true })),
+    input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType })),
   );
 }
 function textBox() {
   return document.querySelector<HTMLTextAreaElement>(
-    ".optional-fields textarea",
+    ".receipt-text-input textarea",
   )!;
 }
+
+const forwardedReceipt = {
+  text: "Оплата 6 487 ₸\n№ чека QR00000000821\nФИО покупателя Үлгі А.\nОплачено с Kaspi Gold",
+  fields: {
+    amount: 648700,
+    receiptNumber: "QR00000000821",
+    payerName: "Үлгі А.",
+    recipientName: 'ОО "URSHYK"',
+    paymentDate: "2026-08-12",
+    paymentTime: "10:00",
+    receiptType: "urshyk",
+    method: "Kaspi Gold",
+  },
+};
+
+it.each([
+  { kind: "membership", category: undefined },
+  {
+    kind: "additional",
+    category: { _id: "addon", name: "Көрме", amount: 350000 },
+  },
+])(
+  "reads pasted text in the $kind form and saves only after confirmation",
+  async ({ kind, category }) => {
+    const close = vi.fn();
+    vi.mocked(send)
+      .mockResolvedValueOnce({ fields: forwardedReceipt.fields })
+      .mockResolvedValueOnce({});
+    await mount(
+      <PaymentForm
+        participant={{ _id: "member" }}
+        initialCategory={category}
+        year={2026}
+        onClose={close}
+      />,
+    );
+    const text = textBox();
+    expect(text.closest("details")).toBeNull();
+    expect(text.closest("label")?.textContent).toContain(
+      "WhatsApp-тағы чек мәтінін қойыңыз",
+    );
+    await typeValue(text, forwardedReceipt.text, "insertFromPaste");
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith("/receipts/recognize-text", {
+      text: forwardedReceipt.text,
+      paymentId: undefined,
+    });
+    expect(field("Төленген сома, ₸ *").value).toBe("6487");
+    expect(field("Төлеген адам").value).toBe(forwardedReceipt.fields.payerName);
+    expect(field("Төлем тәсілі").value).toBe("Kaspi Gold");
+    const save = button("Төлемді сақтау");
+    await typeValue(field("Чек нөмірі"), "ANOTHER");
+    expect(save.disabled).toBe(true);
+    await typeValue(field("Чек нөмірі"), forwardedReceipt.fields.receiptNumber);
+    expect(save.disabled).toBe(false);
+    await act(async () =>
+      document
+        .querySelector("form")!
+        .dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        ),
+    );
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenLastCalledWith(
+      "/participants/member/payments",
+      expect.objectContaining({
+        ...forwardedReceipt.fields,
+        receiptText: forwardedReceipt.text,
+        paymentKind: kind,
+        paymentCategoryId: category?._id || "",
+      }),
+      "POST",
+    );
+    expect(close).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("blocks duplicate pasted text and cancels without registering a payment", async () => {
+  const close = vi.fn();
+  vi.mocked(send).mockRejectedValueOnce(new Error("Бұл чек бұрын тіркелген."));
+  await mount(
+    <PaymentForm participant={{ _id: "member" }} year={2026} onClose={close} />,
+  );
+  await typeValue(textBox(), forwardedReceipt.text, "insertFromPaste");
+  expect(document.querySelector('[role="status"]')?.textContent).toBe(
+    "Бұл чек бұрын тіркелген.",
+  );
+  expect(button("Төлемді сақтау").disabled).toBe(true);
+  await act(async () => button("Бас тарту").click());
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(send).toHaveBeenCalledTimes(1);
+});
 
 it("rejects conflicting or unnumbered WhatsApp text without altering the selected file, then accepts matching text", async () => {
   const file = {
