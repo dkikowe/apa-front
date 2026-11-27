@@ -14,6 +14,13 @@ import {
 } from "../document-status";
 import { DocumentButton } from "./DocumentButton";
 import { Button } from "./ui/button";
+const retryClock = new Intl.DateTimeFormat("kk-KZ", {
+  timeZone: "Asia/Almaty",
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 export function DocumentUpload({
   kind,
   onFields,
@@ -101,8 +108,13 @@ export function DocumentUpload({
     lastApplied.current = { id, fields };
     callbacks.current.onFields(fields, existingAttachment);
   }, [id, current, existingAttachment, uploading]);
+  const nextRead =
+    current?.status === "queued" && current.recoveryHasCheckpoint
+      ? Date.parse(current.nextReadAt ?? "")
+      : 0;
+  const waitingForRetry = nextRead > Date.now() + 1500;
   const missingFields =
-    current?.status === "done"
+    current?.status === "done" || waitingForRetry
       ? missingDocumentFields(kind, current.fields || {})
       : [];
   const conflict =
@@ -172,18 +184,20 @@ export function DocumentUpload({
             ? "Құжат жүктелуде…"
             : reconnecting
               ? "Байланыс уақытша үзілді. Құжаттың күйі қайта тексеріледі…"
-              : processing
-                ? kind === "identity"
-                  ? "Куәлік оқылуда. Оқылмаған деректер қайта тексеріледі…"
-                  : "Чек оқылуда. Оқылмаған деректер қайта тексеріледі…"
-                : current?.status === "done"
-                  ? missingFields.length
-                    ? "Құжаттан оқылған деректер төменде көрсетілді."
-                    : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
-                  : current?.status === "failed" ||
-                      current?.status === "duplicate"
-                    ? current.error
-                    : "PDF, JPG немесе PNG · 15 МБ-қа дейін"}
+              : waitingForRetry && missingFields.length
+                ? `Қайта тексерілетін мәліметтер — ${missingFields.join(", ")}. Келесі тексеріс ${retryClock.format(nextRead)} шамасында (Астана уақыты).`
+                : processing
+                  ? kind === "identity"
+                    ? "Куәлік оқылуда. Оқылмаған деректер қайта тексеріледі…"
+                    : "Чек оқылуда. Оқылмаған деректер қайта тексеріледі…"
+                  : current?.status === "done"
+                    ? missingFields.length
+                      ? "Құжаттан оқылған деректер төменде көрсетілді."
+                      : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
+                    : current?.status === "failed" ||
+                        current?.status === "duplicate"
+                      ? current.error
+                      : "PDF, JPG немесе PNG · 15 МБ-қа дейін"}
         </p>
         <input
           ref={input}

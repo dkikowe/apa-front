@@ -275,6 +275,42 @@ it("polls a deferred server retry without issuing status requests every second",
   ).toBe(1500);
 });
 
+it("shows the remaining IIN and the scheduled Astana time while identity recovery waits", async () => {
+  const next = new Date(Date.now() + 600_000);
+  const expectedTime = new Intl.DateTimeFormat("kk-KZ", {
+    timeZone: "Asia/Almaty",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(next);
+  const job = {
+    id: "A",
+    status: "queued",
+    recoveryHasCheckpoint: true,
+    nextReadAt: next.toISOString(),
+    fields: {
+      firstName: "Айгүл",
+      lastName: "Үлгі",
+      firstNameLatin: "AIGUL",
+      lastNameLatin: "ULGI",
+      birthDate: "1960-01-01",
+      documentNumber: "000000123",
+      issuedBy: "МВД РК",
+      issueDate: "2024-01-15",
+      expiryDate: "2034-01-14",
+    },
+  };
+  vi.mocked(api).mockResolvedValue(job);
+  await show("identity");
+  await file("A.pdf");
+  expect(statusText()).toContain("ЖСН (12 сан)");
+  expect(statusText()).toContain(expectedTime);
+  expect(controls("identity").number.value).toBe("");
+  expect(controls("identity").save.disabled).toBe(true);
+  expect(vi.mocked(send)).not.toHaveBeenCalled();
+});
+
 it.each([false, true])(
   "honours the server's permanent-failure flag (%s) instead of an attempt-count limit",
   async (permanent) => {
