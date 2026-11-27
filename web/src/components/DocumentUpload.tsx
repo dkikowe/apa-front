@@ -8,6 +8,8 @@ import {
   documentPollingInterval,
   failedAttachmentBlocksSave,
   replaceDocumentStatus,
+  readDocumentStatus,
+  statusAccessError,
   type PreviousAttachment,
 } from "../document-status";
 import { DocumentButton } from "./DocumentButton";
@@ -18,6 +20,7 @@ export function DocumentUpload({
   onDocument,
   onUploading,
   disabled = false,
+  allowSavedEdits = false,
   replacingRecognizedText = false,
   initialDocumentId = "",
   onBlocked,
@@ -27,6 +30,7 @@ export function DocumentUpload({
   onDocument: (id: string, previous?: PreviousAttachment) => void;
   onUploading?: (uploading: boolean) => void;
   disabled?: boolean;
+  allowSavedEdits?: boolean;
   replacingRecognizedText?: boolean;
   initialDocumentId?: string;
   onBlocked?: (blocked: boolean) => void;
@@ -59,64 +63,69 @@ export function DocumentUpload({
     staleTime: 0,
     refetchOnWindowFocus: true,
     queryFn: async ({ signal }) => {
-      if (existingAttachment && refreshed.current !== id) {
-        const latest = await api(`/documents/${id}/refresh`, {
-          method: "POST",
-          body: "{}",
-          signal,
-        });
-        if (!signal.aborted) refreshed.current = id;
-        return latest;
-      }
-      return api(`/documents/${id}`, { signal });
+      const refresh = existingAttachment && refreshed.current !== id;
+      const latest = await readDocumentStatus(id, refresh, signal);
+      if (refresh && !signal.aborted) refreshed.current = id;
+      return latest;
     },
     enabled: !!id,
     refetchInterval: (q) =>
       documentPollingInterval(q.state.data, q.state.error),
   });
-  const checkingAttachment = existingAttachment && !job.isFetchedAfterMount;
+  const checkingAttachment =
+    existingAttachment &&
+    (!job.isFetchedAfterMount || refreshed.current !== id);
+  const accessError = statusAccessError(job.error) ? job.error : null;
+  const reconnecting =
+    !!id && !accessError && (job.isError || job.fetchStatus === "paused");
+  const current = checkingAttachment || job.isError ? undefined : job.data;
+  const processing =
+    !!id &&
+    !accessError &&
+    (reconnecting ||
+      !["done", "failed", "duplicate"].includes(current?.status));
   useEffect(() => {
-    if (
-      uploading ||
-      checkingAttachment ||
-      job.isError ||
-      job.data?.status !== "done"
-    )
-      return;
-    const fields = job.data.fields || {};
+    if (uploading || !current) return;
+    // The stored fields of a previous reader may still be present at the start
+    // of a new cycle. Publish only results explicitly confirmed for this run.
+    // A saved attachment keeps its original form values during background OCR.
+    const checkpoint =
+      !existingAttachment &&
+      current.recoveryHasCheckpoint === true &&
+      ["queued", "processing"].includes(current.status);
+    if (current.status !== "done" && !checkpoint) return;
+    const fields = current.fields || {};
     const stamp = JSON.stringify([id, fields]);
     if (applied.current === stamp) return;
     applied.current = stamp;
     lastApplied.current = { id, fields };
-    callbacks.current.onFields(fields, id === originalAttachment.current);
-  }, [id, job.data, checkingAttachment, job.isError, uploading]);
+    callbacks.current.onFields(fields, existingAttachment);
+  }, [id, current, existingAttachment, uploading]);
   const missingFields =
-    job.data?.status === "done"
-      ? missingDocumentFields(kind, job.data.fields || {})
+    current?.status === "done"
+      ? missingDocumentFields(kind, current.fields || {})
       : [];
-  const processing =
-    !!id &&
-    (checkingAttachment ||
-      !["done", "failed", "duplicate"].includes(job.data?.status)) &&
-    !job.isError;
   const conflict =
     uploadConflict ||
-    (job.data?.status === "duplicate"
+    (!checkingAttachment && job.data?.status === "duplicate"
       ? job.data.duplicate || { message: job.data.error }
       : null);
   const blocked =
     !!conflict ||
-    job.isError ||
+    !!accessError ||
     rejectedReplacement ||
     failedAttachmentBlocksSave(
-      job.data,
+      current,
       id === initialDocumentId,
       replacedRecognizedDocument.current,
     );
   useEffect(() => {
     callbacks.current.onBlocked?.(blocked);
   }, [blocked]);
-  function selectDocument(nextId: string) {
+  function selectDocument(
+    nextId: string,
+    originalFields?: Record<string, string | number>,
+  ) {
     const replacing = !!id && nextId !== id;
     if (nextId !== id && replacingRecognizedText)
       replacedRecognizedDocument.current = true;
@@ -125,13 +134,18 @@ export function DocumentUpload({
       const recognized = lastApplied.current?.id === id;
       if (id === initialDocumentId || recognized)
         replacedRecognizedDocument.current = true;
-      previous = recognized ? lastApplied.current : { id, fields: {} };
+      previous = recognized
+        ? lastApplied.current
+        : { id, fields: id === initialDocumentId ? originalFields || {} : {} };
       lastApplied.current = undefined;
     }
     setId(nextId);
     callbacks.current.onDocument(nextId, previous);
   }
-  const pending = uploading || processing;
+  // Existing attachments use only final reads, so other profile/payment edits
+  // can be saved while the worker is checking their original.
+  const pending =
+    uploading || (processing && !(existingAttachment && allowSavedEdits));
   useEffect(() => {
     callbacks.current.onUploading?.(pending);
     return () => callbacks.current.onUploading?.(false);
@@ -153,30 +167,33 @@ export function DocumentUpload({
             ? "Куәліктен автоматты толтыру"
             : "Чектен автоматты толтыру"}
         </strong>
-        <p>
+        <p role="status">
           {uploading
             ? "Құжат жүктелуде…"
-            : processing
-              ? kind === "identity"
-                ? "Куәлік оқылуда. Оқылмаған деректер автоматты түрде қайта тексеріледі. Күте тұрыңыз…"
-                : "Чек оқылуда. Оқылмаған деректер автоматты түрде қайта тексеріледі."
-              : job.data?.status === "done"
-                ? missingFields.length
-                  ? `Оқылмаған деректер: ${missingFields.join(", ")}. ${kind === "identity" ? "Куәліктің екі жағы анық көрінетін файлды жүктеңіз." : "Чек анық көрінетін файлды жүктеңіз."}`
-                  : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
-                : job.data?.status === "failed" ||
-                    job.data?.status === "duplicate"
-                  ? job.data.error
-                  : "PDF, JPG немесе PNG · 15 МБ-қа дейін"}
+            : reconnecting
+              ? "Байланыс уақытша үзілді. Құжаттың күйі қайта тексеріледі…"
+              : processing
+                ? kind === "identity"
+                  ? "Куәлік оқылуда. Оқылмаған деректер қайта тексеріледі…"
+                  : "Чек оқылуда. Оқылмаған деректер қайта тексеріледі…"
+                : current?.status === "done"
+                  ? missingFields.length
+                    ? "Құжаттан оқылған деректер төменде көрсетілді."
+                    : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
+                  : current?.status === "failed" ||
+                      current?.status === "duplicate"
+                    ? current.error
+                    : "PDF, JPG немесе PNG · 15 МБ-қа дейін"}
         </p>
         <input
           ref={input}
           type="file"
+          disabled={disabled || uploading}
           hidden
           accept=".pdf,.jpg,.jpeg,.png"
           onChange={async (e) => {
             const file = e.target.files?.[0];
-            if (!file) return;
+            if (!file || disabled || uploading) return;
             e.target.value = "";
             if (file.size > 15 * 1024 * 1024) {
               setError("Файл 15 МБ-тан аспауы керек.");
@@ -189,6 +206,16 @@ export function DocumentUpload({
             setRejectedReplacement(false);
             setUploadConflict(null);
             try {
+              let originalFields = current?.fields;
+              if (
+                existingAttachment &&
+                lastApplied.current?.id !== id &&
+                !originalFields
+              ) {
+                const original = await readDocumentStatus(id);
+                if (!active.current) return;
+                originalFields = original.fields;
+              }
               const body = new FormData();
               body.append("kind", kind);
               body.append("file", file);
@@ -203,7 +230,7 @@ export function DocumentUpload({
                 _id: result.id,
               });
               if (!active.current) return;
-              selectDocument(result.id);
+              selectDocument(result.id, originalFields);
             } catch (e) {
               if (!active.current) return;
               setError((e as Error).message);
@@ -219,31 +246,37 @@ export function DocumentUpload({
           type="button"
           size="sm"
           variant="outline"
-          disabled={disabled || uploading || !!processing}
+          disabled={disabled || uploading}
           onClick={() => input.current?.click()}
         >
           {kind === "identity" ? "Жеке куәлікті жүктеу" : "Төлем чегін жүктеу"}
         </Button>
-        {(job.data?.status === "failed" || job.data?.status === "done") &&
-          (job.data?.attempts ?? 0) < 3 && (
+        {(current?.status === "failed" || current?.status === "done") &&
+          !current.wrongDocumentKind &&
+          !current.permanentReadFailure &&
+          !conflict && (
             <Button
               type="button"
               variant="outline"
-              disabled={disabled || pending}
+              disabled={disabled || uploading}
               onClick={async () => {
                 setUploading(true);
+                callbacks.current.onUploading?.(true);
                 setError("");
                 try {
                   await send(`/documents/${id}/retry`, {});
+                  if (!active.current) return;
                   await replaceDocumentStatus(queryClient, jobKey, {
-                    ...job.data,
+                    ...current,
                     status: "queued",
+                    recoveryHasCheckpoint: false,
+                    nextReadAt: null,
                   });
                   applied.current = "";
                 } catch (e) {
-                  setError((e as Error).message);
+                  if (active.current) setError((e as Error).message);
                 } finally {
-                  setUploading(false);
+                  if (active.current) setUploading(false);
                 }
               }}
             >
@@ -257,17 +290,31 @@ export function DocumentUpload({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
+                disabled={disabled || uploading}
+                onClick={async () => {
                   const existingId = conflict.duplicateDocumentId;
-                  originalAttachment.current = "";
-                  applied.current = "";
-                  setUploadConflict(null);
-                  setRejectedReplacement(false);
-                  setError("");
-                  selectDocument(existingId);
-                  void queryClient.invalidateQueries({
-                    queryKey: ["ocr", existingId],
-                  });
+                  setUploading(true);
+                  callbacks.current.onUploading?.(true);
+                  try {
+                    const latest = await readDocumentStatus(existingId);
+                    if (!active.current) return;
+                    await replaceDocumentStatus(
+                      queryClient,
+                      ["ocr", existingId],
+                      latest,
+                    );
+                    if (!active.current) return;
+                    originalAttachment.current = "";
+                    applied.current = "";
+                    setUploadConflict(null);
+                    setRejectedReplacement(false);
+                    setError("");
+                    selectDocument(existingId);
+                  } catch (e) {
+                    if (active.current) setError((e as Error).message);
+                  } finally {
+                    if (active.current) setUploading(false);
+                  }
                 }}
               >
                 Бұрын жүктелген құжатты пайдалану
@@ -280,9 +327,9 @@ export function DocumentUpload({
             <DocumentButton documentId={id} kind={kind} compact />
           </div>
         )}
-        {(error || job.isError) && (
+        {(error || accessError) && (
           <p role="alert" className="field-error">
-            {error || "Құжаттың күйін тексеру мүмкін болмады."}
+            {error || accessError?.message}
           </p>
         )}
       </div>

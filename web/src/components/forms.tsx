@@ -76,17 +76,24 @@ export function ParticipantForm({
   const openedParticipant = useRef(participant);
   const autoFilled = useRef(new Set<string>());
   const preservedIdentity = useRef(new Set<string>());
-  const manuallyEdited = (key: string) =>
-    form.getFieldState(key).isDirty || preservedIdentity.current.has(key);
+  const manuallyEdited = (key: string) => preservedIdentity.current.has(key);
   const applyIdentityFields = (
     fields: Record<string, unknown>,
     fillBlanksOnly = false,
   ) => {
+    const currentValues = form.getValues();
+    const protectedValues = fillBlanksOnly
+      ? currentValues
+      : Object.fromEntries(
+          ["issueDate", "expiryDate"]
+            .filter(manuallyEdited)
+            .map((key) => [key, currentValues[key]]),
+        );
     const updates = identityAutofillUpdates(
       fields,
       autoFilled.current,
       manuallyEdited,
-      fillBlanksOnly ? form.getValues() : undefined,
+      protectedValues,
     );
     for (const [key, value] of Object.entries(updates)) {
       form.setValue(key, value, { shouldValidate: true });
@@ -101,6 +108,13 @@ export function ParticipantForm({
       onClose={() => !form.formState.isSubmitting && onClose()}
     >
       <form
+        onChangeCapture={(event) => {
+          // A deliberate correction can also be an empty value. React Hook
+          // Form clears isDirty when it equals the original empty default.
+          const input = event.target;
+          if (input instanceof HTMLInputElement && input.name)
+            preservedIdentity.current.add(input.name);
+        }}
         onSubmit={form.handleSubmit(async (values) => {
           if (uploading || blocked) return;
           setError("");
@@ -143,6 +157,10 @@ export function ParticipantForm({
       >
         <DocumentUpload
           kind="identity"
+          disabled={form.formState.isSubmitting}
+          allowSavedEdits={
+            (form.watch("iin") || "") === (openedParticipant.current?.iin || "")
+          }
           onBlocked={setBlocked}
           initialDocumentId={participant?.identityDocumentId || ""}
           onUploading={setUploading}
@@ -404,7 +422,7 @@ export function PaymentForm({
     "Файлдағы, мәтіндегі және төлемдегі чек нөмірі бірдей болуы керек. Мәтінді өшіріңіз немесе осы чектің мәтінін таңдаңыз.";
   const unchangedSources =
     data.receiptDocumentId === payment?.receiptDocumentId &&
-    data.receiptText === payment?.receiptText &&
+    (data.receiptText || "") === (payment?.receiptText || "") &&
     receiptKey(data.receiptNumber) === receiptKey(payment?.receiptNumber);
   const sourceMismatch = !!(
     data.receiptDocumentId &&
@@ -511,6 +529,7 @@ export function PaymentForm({
         </Field>
         <DocumentUpload
           kind="receipt"
+          allowSavedEdits={unchangedSources}
           onBlocked={setBlocked}
           initialDocumentId={payment?.receiptDocumentId || ""}
           disabled={busy || readingText || savedTextEvidence.isLoading}

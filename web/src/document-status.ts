@@ -1,5 +1,5 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
-import { ApiError } from "./api";
+import { api, ApiError } from "./api";
 import {
   IDENTITY_OCR_FIELDS,
   receiptAutofillUpdates,
@@ -9,6 +9,9 @@ type OcrStatus = {
   status?: string;
   fields?: Record<string, unknown>;
   wrongDocumentKind?: boolean;
+  nextReadAt?: string | null;
+  recoveryHasCheckpoint?: boolean;
+  permanentReadFailure?: boolean;
 };
 export type PreviousAttachment = {
   id: string;
@@ -23,7 +26,9 @@ export function failedAttachmentBlocksSave(
   return (
     job?.status === "failed" &&
     !sameSavedAttachment &&
-    (job.wrongDocumentKind === true || replacedRecognizedDocument)
+    (job.wrongDocumentKind === true ||
+      job.permanentReadFailure === true ||
+      replacedRecognizedDocument)
   );
 }
 
@@ -60,11 +65,41 @@ export async function replaceDocumentStatus(
   client.setQueryData(key, value);
 }
 
+// A stalled HTTP response would otherwise suppress every subsequent poll.
+// Aborting this status request leaves the server's recognition job running.
+export async function readDocumentStatus(
+  id: string,
+  refresh = false,
+  cancel?: AbortSignal,
+) {
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  const timer = setTimeout(stop, 20_000);
+  if (cancel?.aborted) stop();
+  else cancel?.addEventListener("abort", stop, { once: true });
+  try {
+    return await api(`/documents/${id}${refresh ? "/refresh" : ""}`, {
+      ...(refresh ? { method: "POST", body: "{}" } : {}),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+    cancel?.removeEventListener("abort", stop);
+  }
+}
+
+export function statusAccessError(error: unknown): error is ApiError {
+  return error instanceof ApiError && [401, 403, 404].includes(error.status);
+}
+
 export function documentPollingInterval(data?: OcrStatus, error?: unknown) {
-  if (error instanceof ApiError && [401, 403, 404].includes(error.status))
-    return false;
+  if (statusAccessError(error)) return false;
   if (error) return 3000;
-  return ["done", "duplicate", "failed"].includes(data?.status ?? "")
-    ? false
-    : 1500;
+  if (["done", "duplicate", "failed"].includes(data?.status ?? ""))
+    return false;
+  if (data?.status === "queued" && data.nextReadAt) {
+    const delay = Date.parse(data.nextReadAt) - Date.now();
+    if (delay > 1500) return Math.min(delay, 30_000);
+  }
+  return 1500;
 }
