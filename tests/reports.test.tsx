@@ -148,6 +148,39 @@ it("downloads five separately named workbooks and uses the city or district for 
   expect(new Set(downloads).size).toBe(5);
 });
 
+it("downloads the latest oblast workbook on each click for the same year", async () => {
+  const year = Number(
+    document.querySelector<HTMLSelectElement>('select[aria-label="Есеп жылы"]')!
+      .value,
+  );
+  const path = `/api/reports/mangystau-oblast?year=${year}`;
+  const fetchWorkbook = vi
+    .fn()
+    .mockResolvedValueOnce(new Response("first workbook"))
+    .mockResolvedValueOnce(new Response("updated workbook"));
+  vi.stubGlobal("fetch", fetchWorkbook);
+  const createUrl = vi
+    .mocked(URL.createObjectURL)
+    .mockReturnValueOnce("blob:first")
+    .mockReturnValueOnce("blob:updated");
+  for (const version of ["first", "updated"]) {
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>(
+          'button[aria-describedby="oblast-content"]',
+        )!
+        .click(),
+    );
+    const blob = createUrl.mock.lastCall![0] as Blob;
+    expect(await blob.text()).toBe(`${version} workbook`);
+    expect(downloads.at(-1)).toBe(reportFilename("mangystau-oblast", year));
+    expect(
+      vi.mocked(HTMLAnchorElement.prototype.click).mock.contexts.at(-1),
+    ).toHaveProperty("href", `blob:${version}`);
+  }
+  expect(fetchWorkbook.mock.calls.map(([url]) => url)).toEqual([path, path]);
+});
+
 it("keeps all five previous exports in Басқа есептер and applies participant filters only to the two participant exports", async () => {
   await change(
     document.querySelector('select[aria-label="Есеп жылы"]')!,
