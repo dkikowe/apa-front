@@ -66,12 +66,10 @@ export function MemberTable({
   items,
   year,
   compact = false,
-  offset = 0,
 }: {
   items: any[];
   year: number;
   compact?: boolean;
-  offset?: number;
 }) {
   return (
     <div className="table-scroll">
@@ -125,7 +123,7 @@ export function MemberTable({
                   </span>
                   <span>
                     <strong>
-                      {!compact && `${offset + i + 1}. `}
+                      {p.registrationNumber != null && `№ ${p.registrationNumber} · `}
                       {[p.lastName, p.firstName].filter(Boolean).join(" ") ||
                         "Аты-жөні көрсетілмеген"}
                     </strong>
@@ -361,7 +359,6 @@ export function Participants({ membership = false }: { membership?: boolean }) {
             <MemberTable
               items={query.data.items}
               year={filters.year}
-              offset={(page - 1) * 20}
             />
             <Pagination
               page={page}
@@ -548,6 +545,12 @@ function ParticipantProfile({ id }: { id?: string }) {
         <section className="panel profile-panel">
           <h2>Қатысушы туралы</h2>
           <dl>
+            {p.registrationNumber != null && (
+              <div>
+                <dt>Тіркеу нөмірі</dt>
+                <dd>№ {p.registrationNumber}</dd>
+              </div>
+            )}
             <div>
               <dt>Әкесінің аты</dt>
               <dd>{p.middleName || "Әкесінің аты көрсетілмеген"}</dd>

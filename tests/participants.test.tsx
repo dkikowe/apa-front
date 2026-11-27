@@ -118,6 +118,10 @@ const render = (p: object) =>
     </MemoryRouter>,
   );
 describe("Participant list completeness", () => {
+  it("uses the assigned participant number even at the top of a filtered list", () => {
+    expect(render({ firstName: "Айша", registrationNumber: 58 })).toContain("№ 58 · Айша");
+    expect(render({ firstName: "Айша" })).not.toContain("№ 1");
+  });
   it("shows the incomplete badge and no invented age for missing birthday", () => {
     const html = render({
       ...participantSchema.parse({ firstName: "Айша" }),
