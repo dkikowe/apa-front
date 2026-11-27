@@ -1,7 +1,7 @@
 import { IDENTITY_FIELDS, invalidIdentityFields } from "./domain.js";
 
 export const RECEIPT_RECOGNITION_VERSION = 9;
-export const IDENTITY_RECOGNITION_VERSION = 9;
+export const IDENTITY_RECOGNITION_VERSION = 10;
 
 export const receiptKey = (value: unknown) =>
   typeof value === "string"
