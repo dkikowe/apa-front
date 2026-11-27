@@ -53,10 +53,14 @@ it.each(["", "123456789012345678901234"])(
         const write = vi.spyOn(form, "setValue");
         upload.mock.calls[0][0].onFields({
           issuedBy: "ҚР ІШКІ ІСТЕР МИНИСТРЛІГІ", issueDate: "2020-05-11", expiryDate: "2030-05-09",
+          sex: "ӘЙЕЛ", citizenship: "ҚАЗАҚСТАН", birthplace: "МАҢҒЫСТАУ ОБЛЫСЫ",
         }, true);
         expect(write.mock.calls.map(([key, value]) => [key, value])).toEqual([
           ["issuedBy", "ҚР ІШКІ ІСТЕР МИНИСТРЛІГІ"],
           ["expiryDate", "2030-05-09"],
+          ["sex", "ӘЙЕЛ"],
+          ["citizenship", "ҚАЗАҚСТАН"],
+          ["birthplace", "МАҢҒЫСТАУ ОБЛЫСЫ"],
         ]);
       }
     } finally {
@@ -73,7 +77,9 @@ it.each([
   const client = new QueryClient();
   try {
     client.setQueryData(["participant", "sample", 2026], {
-      ...participantSchema.parse({ firstName: "Үлгі" }),
+      ...participantSchema.parse({
+        firstName: "Үлгі", sex: "ӘЙЕЛ", citizenship: "ҚАЗАҚСТАН", birthplace: "МАҢҒЫСТАУ ОБЛЫСЫ",
+      }),
       _id: "sample", issuedBy, issueDate: "2020-05-10", expiryDate,
       totalPaid: 0, remaining: 648700, overpayment: 0, status: "unpaid", payments: [],
     });
@@ -85,6 +91,9 @@ it.each([
       </QueryClientProvider>,
     );
     expect(html).toContain(`<dt>Кім берді</dt><dd>${issuerLabel}</dd>`);
+    expect(html).toContain("<dt>Жынысы</dt><dd>ӘЙЕЛ</dd>");
+    expect(html).toContain("<dt>Азаматтығы</dt><dd>ҚАЗАҚСТАН</dd>");
+    expect(html).toContain("<dt>Туған жері</dt><dd>МАҢҒЫСТАУ ОБЛЫСЫ</dd>");
     expect(html).toContain(`<dt>Жарамдылық мерзімі</dt><dd>10.05.2020 — ${expiryLabel}</dd>`);
   } finally {
     client.clear();

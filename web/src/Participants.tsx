@@ -29,6 +29,7 @@ import {
   RECEIPT_TYPES,
   FEE,
   IDENTITY_FIELDS,
+  OPTIONAL_IDENTITY_FIELDS,
   invalidIdentityFields,
   validityPeriod,
   missingParticipantFields,
@@ -609,16 +610,16 @@ function ParticipantProfile({ id }: { id?: string }) {
           )}
           <h3 className="form-section-label">Жеке куәлік</h3>
           <dl>
-            {IDENTITY_FIELDS.filter(([key]) => !key.endsWith("Date")).map(
-              ([key, label]) => (
+            {[...IDENTITY_FIELDS, ...OPTIONAL_IDENTITY_FIELDS]
+              .filter(([key]) => !key.endsWith("Date"))
+              .map(([key, label]) => (
                 <div key={key}>
                   <dt>{label}</dt>
                   <dd>
                     {(key === "issuedBy" ? issuer : p[key]) || "Көрсетілмеген"}
                   </dd>
                 </div>
-              ),
-            )}
+              ))}
             <div>
               <dt>Жарамдылық мерзімі</dt>
               <dd>{validityPeriod(p.issueDate, p.expiryDate)}</dd>

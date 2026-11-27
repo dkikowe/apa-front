@@ -106,6 +106,11 @@ export const IDENTITY_FIELDS = [
   ["issueDate", "Жарамдылық мерзімінің басталуы"],
   ["expiryDate", "Жарамдылық мерзімінің аяқталуы"],
 ] as const;
+export const OPTIONAL_IDENTITY_FIELDS = [
+  ["sex", "Жынысы"],
+  ["citizenship", "Азаматтығы"],
+  ["birthplace", "Туған жері"],
+] as const;
 // Match printed column headings even when OCR drops separators or substitutes
 // Russian/Latin lookalikes for Kazakh letters. Issuer names are open-ended.
 const validityHeading =
@@ -182,6 +187,9 @@ export const participantSchema = z
     fullNameRu: z.string().trim().max(302).optional(),
     lastNameLatin: z.string().trim().max(100).default(""),
     firstNameLatin: z.string().trim().max(100).default(""),
+    sex: z.string().trim().max(40).optional(),
+    citizenship: z.string().trim().max(150).optional(),
+    birthplace: z.string().trim().max(250).optional(),
     birthDate: z
       .union([
         dateSchema.refine(

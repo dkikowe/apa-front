@@ -1,7 +1,11 @@
-import { IDENTITY_FIELDS, invalidIdentityFields } from "./domain.js";
+import {
+  IDENTITY_FIELDS,
+  invalidIdentityFields,
+  OPTIONAL_IDENTITY_FIELDS,
+} from "./domain.js";
 
 export const RECEIPT_RECOGNITION_VERSION = 9;
-export const IDENTITY_RECOGNITION_VERSION = 10;
+export const IDENTITY_RECOGNITION_VERSION = 11;
 
 export const receiptKey = (value: unknown) =>
   typeof value === "string"
@@ -16,6 +20,7 @@ export const IDENTITY_OCR_FIELDS = [
   "firstNameLatin",
   "birthDate",
   ...IDENTITY_FIELDS.map(([key]) => key),
+  ...OPTIONAL_IDENTITY_FIELDS.map(([key]) => key),
 ] as const;
 
 // Only clear values filled by a previous scan. Keep saved/manual form values.

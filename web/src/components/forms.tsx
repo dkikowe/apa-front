@@ -7,6 +7,7 @@ import { Check } from "lucide-react";
 import {
   participantSchema,
   IDENTITY_FIELDS,
+  OPTIONAL_IDENTITY_FIELDS,
   invalidIdentityFields,
   validityPeriod,
   ageAt,
@@ -66,6 +67,9 @@ export function ParticipantForm({
       iin: "",
       documentNumber: "",
       issuedBy: "",
+      sex: "",
+      citizenship: "",
+      birthplace: "",
       issueDate: "",
       expiryDate: "",
       ...savedValues,
@@ -266,15 +270,16 @@ export function ParticipantForm({
             оқылған мәліметті сақтамас бұрын тексеріңіз.
           </p>
           <div className="form-grid">
-            {IDENTITY_FIELDS.filter(([key]) => !key.endsWith("Date")).map(
-              ([key, label]) => (
+            {[...IDENTITY_FIELDS, ...OPTIONAL_IDENTITY_FIELDS]
+              .filter(([key]) => !key.endsWith("Date"))
+              .map(([key, label]) => (
                 <Field
                   key={key}
                   label={label}
                   error={form.formState.errors[key]?.message as string}
                 >
                   <input
-                    type={key.endsWith("Date") ? "date" : "text"}
+                    type="text"
                     required={
                       key === "iin" && !!form.watch("identityDocumentId")
                     }
@@ -285,8 +290,7 @@ export function ParticipantForm({
                     {...form.register(key)}
                   />
                 </Field>
-              ),
-            )}
+              ))}
           </div>
           <fieldset className="validity-fields">
             <legend>Жарамдылық мерзімі</legend>
