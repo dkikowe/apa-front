@@ -112,6 +112,7 @@ export function ParticipantForm({
       onClose={() => !form.formState.isSubmitting && onClose()}
     >
       <form
+        noValidate
         onChangeCapture={(event) => {
           // A deliberate correction can also be an empty value. React Hook
           // Form clears isDirty when it equals the original empty default.
@@ -119,45 +120,68 @@ export function ParticipantForm({
           if (input instanceof HTMLInputElement && input.name)
             preservedIdentity.current.add(input.name);
         }}
-        onSubmit={form.handleSubmit(async (values) => {
-          if (uploading || blocked) return;
-          setError("");
-          setConflict(null);
-          try {
-            const p = await send(
-              participant
-                ? `/participants/${participant._id}`
-                : "/participants",
-              participant
-                ? {
-                    ...values,
-                    previousValues: Object.fromEntries(
-                      Object.keys(values).map((key) => [
-                        key,
-                        String(openedParticipant.current?.[key] ?? ""),
-                      ]),
-                    ),
-                  }
-                : values,
-              participant ? "PATCH" : "POST",
-            );
-            await queryClient.invalidateQueries();
-            toast.success(
-              participant ? "Өзгерістер сақталды" : "Қатысушы қосылды",
-            );
-            onSaved?.(p);
-            onClose();
-          } catch (e) {
-            setError((e as Error).message);
-            if (e instanceof ApiError && e.status === 412) {
-              await queryClient.invalidateQueries({
-                queryKey: ["participant", participant._id],
-              });
+        onSubmit={form.handleSubmit(
+          async (values) => {
+            if (uploading || blocked) return;
+            setError("");
+            setConflict(null);
+            if (values.identityDocumentId && !values.iin) {
+              const message =
+                "Қайталануын тексеру үшін куәліктегі 12 таңбалы ЖСН қажет.";
+              form.setError(
+                "iin",
+                { type: "required", message },
+                { shouldFocus: true },
+              );
+              setError(message);
+              return;
             }
-            if (e instanceof ApiError && e.status === 409)
-              setConflict(e.details);
-          }
-        })}
+            try {
+              const p = await send(
+                participant
+                  ? `/participants/${participant._id}`
+                  : "/participants",
+                participant
+                  ? {
+                      ...values,
+                      previousValues: Object.fromEntries(
+                        Object.keys(values).map((key) => [
+                          key,
+                          String(openedParticipant.current?.[key] ?? ""),
+                        ]),
+                      ),
+                    }
+                  : values,
+                participant ? "PATCH" : "POST",
+              );
+              await queryClient.invalidateQueries();
+              toast.success(
+                participant ? "Өзгерістер сақталды" : "Қатысушы қосылды",
+              );
+              onSaved?.(p);
+              onClose();
+            } catch (e) {
+              setError((e as Error).message);
+              if (e instanceof ApiError && e.status === 412) {
+                await queryClient.invalidateQueries({
+                  queryKey: ["participant", participant._id],
+                });
+              }
+              if (e instanceof ApiError && e.status === 409)
+                setConflict(e.details);
+            }
+          },
+          (errors) => {
+            const message = Object.values(errors).find(
+              (field) => typeof field?.message === "string",
+            )?.message;
+            setError(
+              typeof message === "string"
+                ? message
+                : "Белгіленген өрістерді тексеріңіз.",
+            );
+          },
+        )}
       >
         <DocumentUpload
           kind="identity"
@@ -285,8 +309,15 @@ export function ParticipantForm({
                     }
                     inputMode={key === "iin" ? "numeric" : undefined}
                     maxLength={
-                      key === "iin" ? 12 : key === "issuedBy" ? 200 : undefined
+                      key === "iin"
+                        ? 12
+                        : key === "issuedBy"
+                          ? 200
+                          : key === "sex"
+                            ? 40
+                            : undefined
                     }
+                    placeholder={key === "sex" ? "Көрсетілмеген" : undefined}
                     {...form.register(key)}
                   />
                 </Field>

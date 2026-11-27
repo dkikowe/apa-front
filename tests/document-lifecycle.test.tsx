@@ -110,6 +110,45 @@ function statusText() {
   return document.querySelector(".upload-box [role=status]")?.textContent ?? "";
 }
 
+it("saves a finished identity without sex or Latin names", async () => {
+  const id = "65a000000000000000000001";
+  vi.mocked(api).mockResolvedValue({
+    id,
+    status: "done",
+    fields: {
+      identityMrz: "blank",
+      firstName: "Айгүл",
+      lastName: "Абаева",
+      iin: "000123456789",
+      birthDate: "1975-04-15",
+      documentNumber: "123456789",
+      issuedBy: "МВД РК",
+      issueDate: "2020-01-01",
+      expiryDate: "2030-01-01",
+    },
+  });
+  vi.mocked(send).mockResolvedValue({});
+  await show("identity");
+  await file("identity.pdf");
+  expect(statusText()).toContain("Жынысы туралы мәлімет табылмады.");
+  expect(controls("identity").save.disabled).toBe(false);
+  await act(async () =>
+    document
+      .querySelector("form")!
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+  );
+  expect(send).toHaveBeenCalledWith(
+    "/participants",
+    expect.objectContaining({
+      identityDocumentId: id,
+      firstName: "Айгүл",
+      iin: "000123456789",
+      sex: "",
+    }),
+    "POST",
+  );
+});
+
 it.each(kinds)(
   "shows trusted %s checkpoints, waits through a dropped status request, keeps a manual correction and unlocks only after final duplicate checks",
   async (kind) => {

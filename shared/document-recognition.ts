@@ -5,7 +5,7 @@ import {
 } from "./domain.js";
 
 export const RECEIPT_RECOGNITION_VERSION = 9;
-export const IDENTITY_RECOGNITION_VERSION = 11;
+export const IDENTITY_RECOGNITION_VERSION = 12;
 
 export const receiptKey = (value: unknown) =>
   typeof value === "string"
@@ -117,10 +117,12 @@ export function missingDocumentFields(
       issuedBy: "кім берді",
       issueDate: "берілген күні",
       expiryDate: "жарамдылық мерзімі",
-      lastNameLatin: "латынша тегі",
-      firstNameLatin: "латынша аты",
     }))
       if (!fields[key] || invalid.has(key)) missing.push(label);
+    if (fields.identityMrz !== "blank") {
+      if (!fields.lastNameLatin) missing.push("латынша тегі");
+      if (!fields.firstNameLatin) missing.push("латынша аты");
+    }
     // A patronymic can genuinely be absent from an identity card.
     return missing;
   }

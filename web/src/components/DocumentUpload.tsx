@@ -193,7 +193,11 @@ export function DocumentUpload({
                   : current?.status === "done"
                     ? missingFields.length
                       ? "Құжаттан оқылған деректер төменде көрсетілді."
-                      : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
+                      : kind === "identity" &&
+                          current.fields?.identityMrz === "blank" &&
+                          !current.fields.sex
+                        ? "Құжат оқылды. Жынысы туралы мәлімет табылмады."
+                        : "Құжат оқылды. Төмендегі мәліметтерді тексеріңіз."
                     : current?.status === "failed" ||
                         current?.status === "duplicate"
                       ? current.error
