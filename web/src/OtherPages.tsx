@@ -318,7 +318,7 @@ export function Reports() {
             descriptionId="international-content"
           />
           <p id="international-content">
-            Шетелге жіберілетін қатысушылардың латынша аты-жөні.
+            Қатысушылардың аты-жөні, жасы, жас санаты және жеке куәлік деректері.
           </p>
         </div>
       </section>
