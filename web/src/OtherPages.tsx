@@ -232,7 +232,11 @@ export function Reports() {
             label={REPORT_TITLES["mangystau-oblast"]}
             descriptionId="oblast-content"
           />
-          <p id="oblast-content">Таңдалған жыл бойынша бүкіл облыстың есебі.</p>
+          <p id="oblast-content">
+            Куәліктегі толық аты-жөні, туған күні және телефоны. Таңдалған
+            жылы мүшелік жарнаға (6 500 ₸) және басқа төлемдерге түскен сомалар
+            мен чек деректері көрсетіледі.
+          </p>
         </div>
       </section>
       <section
