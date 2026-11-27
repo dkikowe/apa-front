@@ -557,6 +557,18 @@ function ParticipantProfile({ id }: { id?: string }) {
                 )}
               </dd>
             </div>
+            {[
+              ["Қазақша аты-жөні", p.fullNameKk],
+              ["Орысша аты-жөні", p.fullNameRu],
+            ].map(
+              ([label, value]) =>
+                value && (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ),
+            )}
             {(p.lastNameLatin || p.firstNameLatin) && (
               <div>
                 <dt>Латынша аты-жөні</dt>

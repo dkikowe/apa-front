@@ -7,6 +7,15 @@ import { Field } from "./common";
 import { Button } from "./ui/button";
 
 type Category = { _id: string; name: string; amount: number };
+export function usePaymentCategories() {
+  return useQuery({
+    queryKey: ["payment-categories"],
+    queryFn: () => api<{ items: Category[] }>("/payment-categories"),
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000,
+  });
+}
+
 export function PaymentCategorySelect({
   value,
   currentName,
@@ -22,12 +31,7 @@ export function PaymentCategorySelect({
   onEditing: (editing: boolean) => void;
   onBusy: (busy: boolean) => void;
 }) {
-  const query = useQuery({
-    queryKey: ["payment-categories"],
-    queryFn: () => api<{ items: Category[] }>("/payment-categories"),
-    refetchOnWindowFocus: true,
-    refetchInterval: 30000,
-  });
+  const query = usePaymentCategories();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");

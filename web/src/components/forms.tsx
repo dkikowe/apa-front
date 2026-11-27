@@ -54,6 +54,8 @@ export function ParticipantForm({
       lastName: "",
       firstName: "",
       middleName: "",
+      fullNameKk: "",
+      fullNameRu: "",
       notes: "",
       lastNameLatin: "",
       firstNameLatin: "",
@@ -198,6 +200,23 @@ export function ParticipantForm({
             </Field>
           ))}
         </div>
+        <details className="optional-fields">
+          <summary>Есептегі аты-жөні</summary>
+          <div className="form-grid">
+            {[
+              ["fullNameKk", "Қазақша аты-жөні"],
+              ["fullNameRu", "Орысша аты-жөні"],
+            ].map(([key, label]) => (
+              <Field
+                key={key}
+                label={label}
+                error={form.formState.errors[key]?.message as string}
+              >
+                <input maxLength={302} {...form.register(key)} />
+              </Field>
+            ))}
+          </div>
+        </details>
         <LocationSelect
           region={form.watch("region") || ""}
           village={form.watch("village") || ""}

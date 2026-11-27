@@ -18,6 +18,7 @@ import {
   today,
 } from "../../../shared/domain";
 import { downloadReport } from "../api";
+import type { ReportType } from "../../../shared/report-names";
 import { regionLabel } from "../../../shared/locations";
 export function Modal({
   title,
@@ -372,15 +373,18 @@ export function ExportButton({
   type = "members",
   filters,
   label = "Excel жүктеу",
+  descriptionId,
 }: {
-  type?: string;
+  type?: ReportType;
   filters: Record<string, any>;
   label?: string;
+  descriptionId?: string;
 }) {
   const [busy, setBusy] = useState(false);
   return (
     <Button
       variant="outline"
+      aria-describedby={descriptionId}
       disabled={busy}
       onClick={async () => {
         setBusy(true);

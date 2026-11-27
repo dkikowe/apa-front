@@ -1322,61 +1322,54 @@ td small {
 .transaction-type.expense {
   color: #b57c50;
 }
-.reports-filter {
-  padding-bottom: 20px;
-}
-.reports-filter .filters {
-  padding: 0 24px;
-}
-.match-count {
-  padding: 18px 24px 0;
-  color: #448061;
-  font-size: 18px;
-}
-.report-step {
-  margin: 28px 0 18px;
-  font-size: 18px;
-}
-.report-grid {
+.report-choices {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 16px;
+  padding: clamp(16px, 3vw, 28px);
 }
-.report-card {
-  padding: 24px;
-  margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-.report-icon {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 11px;
-  background: #eef5ee;
-  color: #61916b;
-  margin-bottom: 17px;
-}
-.report-card h3 {
-  font-size: 18px;
-}
-.report-card p {
-  font-size: 18px;
-  line-height: 1.8;
-  margin: 9px 0;
-}
-.report-card small {
-  font-size: 18px;
-  margin: 0 0 24px;
-}
-.report-card .button {
-  margin-top: auto;
+.report-choices .button-outline {
+  min-height: 60px;
+  justify-content: flex-start;
+  text-align: start;
   white-space: normal;
+  line-height: 1.4;
 }
-.report-grid + .notice-strip {
-  margin-top: 24px;
+.report-option {
+  display: grid;
+  gap: 6px;
+}
+.report-option p {
+  margin: 0;
+  font-size: 18px;
+}
+.district-payment-report {
+  display: grid;
+  gap: 12px;
+  padding-block: 16px;
+  border-block: 1px solid var(--border);
+}
+.report-category-error p {
+  margin: 0 0 12px;
+}
+.district-payment-report .field,
+.report-choices > .field {
+  margin: 0;
+}
+.other-reports > summary {
+  padding: 20px 24px;
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 22px;
+}
+.other-reports .report-choices {
+  border-top: 1px solid var(--border);
+}
+.other-reports .filters {
+  padding: 0;
+}
+.report-match {
+  margin: 0;
+  color: #336447;
 }
 .settings-panel {
   max-width: 900px;
@@ -1642,9 +1635,6 @@ td small {
   }
   .detail-grid {
     grid-template-columns: 1fr;
-  }
-  .report-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 1000px) {
@@ -2007,18 +1997,6 @@ td small {
   .finance-stats .stat-card:last-child {
     grid-column: span 2;
   }
-  .report-grid {
-    grid-template-columns: 1fr;
-  }
-  .report-card {
-    padding: 22px;
-  }
-  .report-card p {
-    font-size: 18px;
-  }
-  .report-card small {
-    font-size: 18px;
-  }
   .settings-row {
     flex-direction: column;
     gap: 8px;
@@ -2176,7 +2154,6 @@ td small {
 .empty p {
   font-size: 18px;
 }
-.report-card p,
 .settings-row,
 .settings-help p {
   font-size: 18px;
@@ -2711,13 +2688,6 @@ select,
 .profile-panel dl > div {
   flex-wrap: wrap;
   gap: 8px 18px;
-}
-.report-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-}
-.report-card p,
-.report-card small {
-  font-size: 18px;
 }
 .finance-stats {
   grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));

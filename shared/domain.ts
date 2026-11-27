@@ -178,6 +178,8 @@ export const participantSchema = z
     notes: z.string().trim().max(4000).default(""),
     village: z.string().trim().max(200).default(""),
     middleName: z.string().trim().max(100).default(""),
+    fullNameKk: z.string().trim().max(302).optional(),
+    fullNameRu: z.string().trim().max(302).optional(),
     lastNameLatin: z.string().trim().max(100).default(""),
     firstNameLatin: z.string().trim().max(100).default(""),
     birthDate: z

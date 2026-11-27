@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import { reportFilename, type ReportType } from "../../shared/report-names";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: 1, staleTime: 20000, refetchOnWindowFocus: false },
@@ -53,20 +54,20 @@ export function qs(obj: Record<string, any>) {
   ).toString();
 }
 export async function downloadReport(
-  type: string,
+  type: ReportType,
   filters: Record<string, any>,
 ) {
   const res = await fetch(`/api/reports/${type}?${qs(filters)}`, {
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.message);
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || "Есеп жүктелмеді. Қайта көріңіз.");
   }
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${type}-${filters.year}.xlsx`;
+  a.download = reportFilename(type, filters.year);
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

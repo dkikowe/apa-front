@@ -1,22 +1,18 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Plus,
-  ArrowDownLeft,
-  ArrowUpRight,
-  FileSpreadsheet,
-  ShieldCheck,
-  BookOpen,
-} from "lucide-react";
+import { Plus, ArrowDownLeft, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api, queryClient, qs } from "./api";
-import { money } from "../../shared/domain";
+import { money, REGIONS } from "../../shared/domain";
+import { regionLabel } from "../../shared/locations";
+import { REPORT_TITLES } from "../../shared/report-names";
 import { Button } from "./components/ui/button";
 import {
   PageHeading,
   YearSelect,
   defaultFilters,
   Filters,
+  Field,
   Loading,
   ErrorBox,
   Empty,
@@ -25,6 +21,7 @@ import {
   ExportButton,
 } from "./components/common";
 import { FinanceForm } from "./components/forms";
+import { usePaymentCategories } from "./components/PaymentCategorySelect";
 export function FinancePage() {
   const [year, setYear] = useState(defaultFilters.year),
     [page, setPage] = useState(1),
@@ -206,96 +203,180 @@ export function FinancePage() {
   );
 }
 export function Reports() {
-  const [filters, setFilters] = useState(defaultFilters);
+  const [year, setYear] = useState(defaultFilters.year);
+  const [district, setDistrict] = useState("");
+  const [paymentCategoryId, setPaymentCategoryId] = useState("");
+  const categories = usePaymentCategories();
+  const selectedCategory = categories.data?.items.find(
+    (category) => category._id === paymentCategoryId,
+  );
+  const [showOther, setShowOther] = useState(false);
+  const rosterFilters = { year, region: district };
+  return (
+    <>
+      <PageHeading
+        title="Есептер"
+        description="Жылды таңдап, керекті Excel файлын жүктеңіз."
+      >
+        <YearSelect value={year} onChange={setYear} />
+      </PageHeading>
+      <section
+        className="panel report-choices"
+        aria-labelledby="mangystau-reports"
+      >
+        <h2 id="mangystau-reports">Маңғыстау облысы</h2>
+        <div className="report-option">
+          <ExportButton
+            type="mangystau-oblast"
+            filters={{ year }}
+            label={REPORT_TITLES["mangystau-oblast"]}
+            descriptionId="oblast-content"
+          />
+          <p id="oblast-content">Таңдалған жыл бойынша бүкіл облыстың есебі.</p>
+        </div>
+      </section>
+      <section
+        className="panel report-choices"
+        aria-label="Аймақтық және атаулы тізімдер"
+      >
+        <Field label="Аймақтық және атаулы тізімдерге кіретін қала немесе аудан">
+          <select
+            value={district}
+            onChange={(event) => setDistrict(event.target.value)}
+          >
+            <option value="">Барлық қала мен аудан</option>
+            {REGIONS.map((region) => (
+              <option key={region} value={region}>
+                {regionLabel(region)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <div className="district-payment-report">
+          <Field
+            label="Аймақтық тізімдегі төлем түрі"
+            hint="5 600 ₸ төлемі бөлек тіркелсе, оның атауын таңдаңыз."
+          >
+            <select
+              value={selectedCategory?._id || ""}
+              onChange={(event) => setPaymentCategoryId(event.target.value)}
+              disabled={!categories.data?.items.length}
+            >
+              <option value="">Барлық қосымша төлемдер</option>
+              {categories.data?.items.map((category) => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {categories.isError && (
+            <div className="report-category-error" role="alert">
+              <p>
+                Төлем түрлері жүктелмеді. Барлық қосымша төлемдер бойынша
+                тізімді жүктей аласыз.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => void categories.refetch()}
+                disabled={categories.isFetching}
+              >
+                Төлем түрлерін қайта жүктеу
+              </Button>
+            </div>
+          )}
+          <ExportButton
+            type="mangystau-district"
+            filters={{
+              ...rosterFilters,
+              paymentCategoryId: selectedCategory?._id,
+            }}
+            label={REPORT_TITLES["mangystau-district"]}
+          />
+        </div>
+        <ExportButton
+          type="awards"
+          filters={rosterFilters}
+          label={REPORT_TITLES.awards}
+        />
+        <div className="report-option">
+          <ExportButton
+            type="urshyk"
+            filters={rosterFilters}
+            label={REPORT_TITLES.urshyk}
+            descriptionId="urshyk-content"
+          />
+          <p id="urshyk-content">
+            Ұршыққа жіберілетін қатысушылардың құжаттағы деректері.
+          </p>
+        </div>
+        <div className="report-option">
+          <ExportButton
+            type="international"
+            filters={rosterFilters}
+            label={REPORT_TITLES.international}
+            descriptionId="international-content"
+          />
+          <p id="international-content">
+            Шетелге жіберілетін қатысушылардың латынша аты-жөні.
+          </p>
+        </div>
+      </section>
+      <details
+        className="panel other-reports"
+        onToggle={(event) => setShowOther(event.currentTarget.open)}
+      >
+        <summary>Басқа есептер</summary>
+        <OtherReports year={year} open={showOther} />
+      </details>
+    </>
+  );
+}
+
+function OtherReports({ year, open }: { year: number; open: boolean }) {
+  const [criteria, setCriteria] = useState(defaultFilters);
+  const filters = { ...criteria, year };
   const query = useQuery({
+    enabled: open,
     queryKey: ["report-count", filters],
     queryFn: () => api("/participants?" + qs({ ...filters, limit: 1 })),
   });
   return (
     <>
-      <PageHeading
-        eyebrow="ДАЙЫН ҚҰЖАТТАР"
-        title="Есептер"
-        description="Керек тізімді таңдап, Excel файлын жүктеңіз."
-      />
-      <section className="panel reports-filter">
-        <div className="panel-heading">
-          <div>
-            <h2>1. Кімдер есепке кірсін?</h2>
-            <p>Бірнеше шартты қатар таңдауға болады</p>
-          </div>
-        </div>
-        <Filters value={filters} onChange={setFilters} />
+      <section className="report-choices" aria-labelledby="member-reports">
+        <h3 id="member-reports">Қатысушылар мен төлемдер</h3>
+        <Filters year={false} value={filters} onChange={setCriteria} />
         {query.isError ? (
           <ErrorBox error={query.error} />
         ) : (
-          <p className="match-count">
+          <p className="report-match" role="status">
             {query.isLoading
               ? "Есептелуде…"
               : `${query.data?.total || 0} қатысушы таңдалды`}
           </p>
         )}
+        <ExportButton
+          type="members"
+          filters={filters}
+          label={REPORT_TITLES.members}
+        />
+        <ExportButton
+          type="payments"
+          filters={filters}
+          label={REPORT_TITLES.payments}
+        />
       </section>
-      <h2 className="report-step">2. Қажетті есепті жүктеңіз</h2>
-      <div className="report-grid">
-        {[
-          {
-            type: "members",
-            title: "Қатысушылар тізімі",
-            text: "Аты-жөні, аймағы, жасы және жарнасының жағдайы.",
-            filtered: true,
-          },
-          {
-            type: "payments",
-            title: "Қатысушылардың төлемдері",
-            text: "Таңдалған жылға тіркелген төлемдер мен чектер.",
-            filtered: true,
-          },
-          {
-            type: "income",
-            title: "Барлық кірістер",
-            text: "Мүшелік жарна, қосымша төлемдер және өзге түсімдер. Тек жыл бойынша.",
-            filtered: false,
-          },
-          {
-            type: "expense",
-            title: "Шығыстар",
-            text: "Ұйымның барлық шығыстары. Тек жыл бойынша.",
-            filtered: false,
-          },
-          {
-            type: "financial",
-            title: "Жалпы қаржы есебі",
-            text: "Кірістер, шығыстар және есептік қалдық. Тек жыл бойынша.",
-            filtered: false,
-          },
-        ].map((report) => (
-          <section className="panel report-card" key={report.type}>
-            <span className="report-icon">
-              <FileSpreadsheet size={26} />
-            </span>
-            <h3>{report.title}</h3>
-            <p>{report.text}</p>
-            <small>
-              {report.filtered
-                ? "Жоғарыдағы барлық іріктеу шарты қолданылады."
-                : "Аймақ, жас және төлем жағдайы қолданылмайды."}
-            </small>
-            <ExportButton
-              type={report.type}
-              filters={report.filtered ? filters : { year: filters.year }}
-              label="Excel файлын жүктеу"
-            />
-          </section>
+      <section className="report-choices" aria-labelledby="finance-reports">
+        <h3 id="finance-reports">{year} жылғы қаржы</h3>
+        {(["income", "expense", "financial"] as const).map((type) => (
+          <ExportButton
+            key={type}
+            type={type}
+            filters={{ year }}
+            label={REPORT_TITLES[type]}
+          />
         ))}
-      </div>
-      <div className="notice-strip">
-        <BookOpen size={22} />
-        <span>
-          Төлегендерді немесе төлемегендерді алу үшін «Төлем жағдайы» шартын
-          таңдаңыз. Есепке барлық сәйкес жазба кіреді.
-        </span>
-      </div>
+      </section>
     </>
   );
 }
